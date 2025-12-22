@@ -1,0 +1,21 @@
+mining:
+  iron:
+    cost: 2
+    chance: 0.5
+  copper:
+    cost: 1
+    chance: 0.75
+  gold:
+    cost: 5
+    chance: 0.35
+  diamond:
+    cost: 10
+    chance: 0.15
+
+smelting:
+  iron:
+    cost: 1
+  copper:
+    cost: 1
+  gold:
+    cost: 1
