@@ -151,7 +151,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   // Mining functions
-  void mineIronOre() {
+  Future<bool> mineIronOre() async {
     if (hammerfells >= 1) {
       final success = _rng.nextDouble() < ironMineChance;
       setState(() {
@@ -159,13 +159,14 @@ class _HomePageState extends State<HomePage> {
         if (success) {
           ironOre += 1;
         }
-        _saveGame();
       });
-      _showResultSnackBar(success, success ? 'Mined Iron Ore!' : 'Failed to mine Iron Ore.');
+      await _saveGame();
+      return success;
     }
+    return false;
   }
 
-  void mineCopperOre() {
+  Future<bool> mineCopperOre() async {
     if (hammerfells >= 1) {
       final success = _rng.nextDouble() < copperMineChance;
       setState(() {
@@ -173,13 +174,14 @@ class _HomePageState extends State<HomePage> {
         if (success) {
           copperOre += 1;
         }
-        _saveGame();
       });
-      _showResultSnackBar(success, success ? 'Mined Copper Ore!' : 'Failed to mine Copper Ore.');
+      await _saveGame();
+      return success;
     }
+    return false;
   }
 
-  void mineGoldOre() {
+  Future<bool> mineGoldOre() async {
     if (hammerfells >= 1) {
       final success = _rng.nextDouble() < goldMineChance;
       setState(() {
@@ -187,13 +189,14 @@ class _HomePageState extends State<HomePage> {
         if (success) {
           goldOre += 1;
         }
-        _saveGame();
       });
-      _showResultSnackBar(success, success ? 'Mined Gold Ore!' : 'Failed to mine Gold Ore.');
+      await _saveGame();
+      return success;
     }
+    return false;
   }
 
-  void mineDiamond() {
+  Future<bool> mineDiamond() async {
     if (hammerfells >= 1) {
       final success = _rng.nextDouble() < diamondMineChance;
       setState(() {
@@ -201,10 +204,11 @@ class _HomePageState extends State<HomePage> {
         if (success) {
           diamond += 1;
         }
-        _saveGame();
       });
-      _showResultSnackBar(success, success ? 'Mined Diamond!' : 'Failed to mine Diamond.');
+      await _saveGame();
+      return success;
     }
+    return false;
   }
 
   // Smelting functions (1 H each)
@@ -400,12 +404,16 @@ class _HomePageState extends State<HomePage> {
           'gold': goldMineChance,
           'diamond': diamondMineChance,
         },
-        onMine: (ore) {
-          if (ore == 'iron') mineIronOre();
-          else if (ore == 'copper') mineCopperOre();
-          else if (ore == 'gold') mineGoldOre();
-          else if (ore == 'diamond') mineDiamond();
+        onMine: (ore) async {
+          bool success = false;
+          if (ore == 'iron') success = await mineIronOre();
+          else if (ore == 'copper') success = await mineCopperOre();
+          else if (ore == 'gold') success = await mineGoldOre();
+          else if (ore == 'diamond') success = await mineDiamond();
+          _pulseRow(ore, success);
+          return success;
         },
+
       ),
     );
   }
@@ -916,10 +924,10 @@ class _FurnaceModalState extends State<FurnaceModal> with SingleTickerProviderSt
   }
 }
 
-class MineModal extends StatelessWidget {
+class MineModal extends StatefulWidget {
   final int hammerfells;
   final Map<String, double>? miningChances;
-  final void Function(String) onMine;
+  final Future<bool> Function(String) onMine;
 
   const MineModal({
     super.key,
@@ -928,20 +936,104 @@ class MineModal extends StatelessWidget {
     this.miningChances,
   });
 
+  @override
+  _MineModalState createState() => _MineModalState();
+}
+
+enum _MineStatus { idle, loading, success, failure }
+
+class _MineModalState extends State<MineModal> with TickerProviderStateMixin {
+  final Map<String, _MineStatus> _statuses = {};
+  final Map<String, AnimationController> _controllers = {};
+  static const _progressDuration = Duration(milliseconds: 1000);
+  static const _colorHoldDuration = Duration(milliseconds: 800);
+
+  AnimationController _ensureController(String key) {
+    if (!_controllers.containsKey(key)) {
+      _controllers[key] = AnimationController(vsync: this, duration: _progressDuration)
+        ..addListener(() {
+          // rebuild to update visual progress
+          if (mounted) setState(() {});
+        });
+    }
+    return _controllers[key]!;
+  }
+
+  @override
+  void dispose() {
+    for (final c in _controllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
   Widget _mineTile(BuildContext context, String label, int cost, String key, String svgAsset) {
-    final canMine = hammerfells >= 1;
-    final chance = miningChances != null ? (miningChances![key] ?? 1.0) : 1.0;
+    final canMine = widget.hammerfells >= 1;
+    final chance = widget.miningChances != null ? (widget.miningChances![key] ?? 1.0) : 1.0;
     final chancePct = (chance * 100).toStringAsFixed(0);
+    final status = _statuses[key] ?? _MineStatus.idle;
+    final controller = _ensureController(key);
+    final progress = controller.value.clamp(0.0, 1.0);
+
+    Widget buttonChild = Stack(
+      alignment: Alignment.center,
+      children: [
+        // Progress background
+        Positioned.fill(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: status == _MineStatus.idle ? 0.0 : (status == _MineStatus.loading ? progress : 1.0),
+              child: Container(
+                color: status == _MineStatus.success
+                    ? Colors.green
+                    : status == _MineStatus.failure
+                        ? Colors.orange
+                        : Colors.yellow,
+              ),
+            ),
+          ),
+        ),
+        // Label
+        const Center(child: Text('Mine', style: TextStyle(color: Colors.white))),
+      ],
+    );
+
     return ListTile(
       leading: SvgPicture.asset(svgAsset, width: 28, height: 28, colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.onSurface, BlendMode.srcIn)),
       title: Text(label),
       subtitle: Text('1 H • $chancePct% chance'),
       trailing: canMine
           ? ElevatedButton(
-              onPressed: () {
-                onMine(key);
-              },
-              child: const Text('Mine'),
+              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10)),
+              onPressed: status == _MineStatus.loading
+                  ? null
+                  : () async {
+                      setState(() => _statuses[key] = _MineStatus.loading);
+                      final c = _ensureController(key);
+                      c.reset();
+
+                      // Start the progress animation
+                      await c.forward();
+                      // Then run the mining operation
+                      bool success = false;
+                      try {
+                        success = await widget.onMine(key);
+                      } catch (_) {
+                        success = false;
+                      }
+
+                      // Show color full and hold for a short moment
+                      setState(() => _statuses[key] = success ? _MineStatus.success : _MineStatus.failure);
+                      c.value = 1.0;
+                      await Future.delayed(_colorHoldDuration);
+
+                      // Reset UI
+                      if (mounted) setState(() => _statuses[key] = _MineStatus.idle);
+                      c.reset();
+                    },
+              child: SizedBox(width: 72, height: 36, child: buttonChild),
             )
           : const Text('Unavailable', style: TextStyle(color: Colors.grey)),
     );
@@ -949,7 +1041,7 @@ class MineModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canMineAny = hammerfells >= 1; // at least copper cost
+    final canMineAny = widget.hammerfells >= 1; // at least copper cost
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(12),
