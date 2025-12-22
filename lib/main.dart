@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'models/app_config.dart';
+import 'package:yaml/yaml.dart';
 import 'modals/furnace_modal.dart';
 import 'modals/mine_modal.dart';
 // import 'modals/forest_modal.dart';
@@ -74,15 +75,11 @@ class _HomePageState extends State<HomePage> {
   int copperIngot = 0;
   int goldIngot = 0;
 
-  // Configurable costs (defaults match previous hard-coded values)
-  int ironMineCost = 2;
-  int copperMineCost = 1;
-  int goldMineCost = 5;
-  int diamondMineCost = 10;
-
-  int smeltIronCost = 1;
-  int smeltCopperCost = 1;
-  int smeltGoldCost = 1;
+  // All mining and smelting costs are 1 hammerfell
+  static const int miningCost = 1;
+  static const int smeltIronCost = 1;
+  static const int smeltCopperCost = 1;
+  static const int smeltGoldCost = 1;
 
   // Mining chances (0.0 - 1.0), defaults to always succeed
   double ironMineChance = 1.0;
@@ -148,14 +145,26 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadConfig() async {
-    // Load configuration if needed
+    try {
+      final configString = await rootBundle.loadString('assets/config.yml');
+      final config = loadYaml(configString);
+      final mining = config['mining'];
+      setState(() {
+        ironMineChance = (mining['iron']['chance'] ?? ironMineChance).toDouble();
+        copperMineChance = (mining['copper']['chance'] ?? copperMineChance).toDouble();
+        goldMineChance = (mining['gold']['chance'] ?? goldMineChance).toDouble();
+        diamondMineChance = (mining['diamond']['chance'] ?? diamondMineChance).toDouble();
+      });
+    } catch (e) {
+      debugPrint('Failed to load config.yml: $e');
+    }
   }
 
   Future<bool> mineIronOre() async {
-    if (hammerfells >= ironMineCost) {
+    if (hammerfells >= miningCost) {
       final success = _rng.nextDouble() < ironMineChance;
       setState(() {
-        hammerfells -= ironMineCost;
+        hammerfells -= miningCost;
         if (success) ironOre += 1;
         _saveGame();
       });
@@ -165,10 +174,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<bool> mineCopperOre() async {
-    if (hammerfells >= copperMineCost) {
+    if (hammerfells >= miningCost) {
       final success = _rng.nextDouble() < copperMineChance;
       setState(() {
-        hammerfells -= copperMineCost;
+        hammerfells -= miningCost;
         if (success) copperOre += 1;
         _saveGame();
       });
@@ -178,10 +187,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<bool> mineGoldOre() async {
-    if (hammerfells >= goldMineCost) {
+    if (hammerfells >= miningCost) {
       final success = _rng.nextDouble() < goldMineChance;
       setState(() {
-        hammerfells -= goldMineCost;
+        hammerfells -= miningCost;
         if (success) goldOre += 1;
         _saveGame();
       });
@@ -191,10 +200,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<bool> mineDiamond() async {
-    if (hammerfells >= diamondMineCost) {
+    if (hammerfells >= miningCost) {
       final success = _rng.nextDouble() < diamondMineChance;
       setState(() {
-        hammerfells -= diamondMineCost;
+        hammerfells -= miningCost;
         if (success) diamond += 1;
         _saveGame();
       });
