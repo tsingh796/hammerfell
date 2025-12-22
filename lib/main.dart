@@ -4,7 +4,15 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/foundation.dart';
-import 'config/app_config.dart';
+import 'models/app_config.dart';
+import 'modals/furnace_modal.dart';
+import 'modals/mine_modal.dart';
+// import 'modals/forest_modal.dart';
+import 'widgets/ore_row.dart';
+import 'widgets/smelt_row.dart';
+import 'widgets/coin_icon.dart';
+import 'utils/color_utils.dart';
+import 'utils/animation_utils.dart';
 
 void main() {
   runApp(const OreMinerApp());
@@ -82,19 +90,10 @@ class _HomePageState extends State<HomePage> {
     'diamond': null,
   };
 
-  void _pulseRow(String id, bool success) {
-    setState(() {
-      _rowScale[id] = 1.06;
-      _rowOverlayColor[id] = success ? Colors.green.withOpacity(0.18) : Colors.red.withOpacity(0.18);
-    });
-
-    Future.delayed(const Duration(milliseconds: 320), () {
-      setState(() {
-        _rowScale[id] = 1.0;
-        _rowOverlayColor[id] = null;
-      });
-    });
+  Future<void> _pulseRow(String id, bool success) async {
+    await pulseRow(id, success, setState, _rowScale, _rowOverlayColor);
   }
+
 
   @override
   void initState() {
@@ -130,96 +129,66 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadConfig() async {
-    try {
-      final cfg = await AppConfig.loadFromAssets();
-      setState(() {
-        ironMineCost = cfg.miningCost('iron', fallback: ironMineCost);
-        copperMineCost = cfg.miningCost('copper', fallback: copperMineCost);
-        goldMineCost = cfg.miningCost('gold', fallback: goldMineCost);
-        diamondMineCost = cfg.miningCost('diamond', fallback: diamondMineCost);
-
-        smeltIronCost = cfg.smeltingCost('iron', fallback: smeltIronCost);
-        smeltCopperCost = cfg.smeltingCost('copper', fallback: smeltCopperCost);
-        smeltGoldCost = cfg.smeltingCost('gold', fallback: smeltGoldCost);
-
-        // Load chance values for mining
-        ironMineChance = cfg.miningChance('iron', fallback: ironMineChance);
-        copperMineChance = cfg.miningChance('copper', fallback: copperMineChance);
-        goldMineChance = cfg.miningChance('gold', fallback: goldMineChance);
-        diamondMineChance = cfg.miningChance('diamond', fallback: diamondMineChance);
-      });
-    } catch (e) {
-      // If something goes wrong reading the config, keep defaults
-    }
+    // Load configuration if needed
   }
 
-  // Mining functions
   Future<bool> mineIronOre() async {
-    if (hammerfells >= 1) {
+    if (hammerfells >= ironMineCost) {
       final success = _rng.nextDouble() < ironMineChance;
       setState(() {
-        hammerfells -= 1;
-        if (success) {
-          ironOre += 1;
-        }
+        hammerfells -= ironMineCost;
+        if (success) ironOre += 1;
+        _saveGame();
       });
-      await _saveGame();
       return success;
     }
     return false;
   }
 
   Future<bool> mineCopperOre() async {
-    if (hammerfells >= 1) {
+    if (hammerfells >= copperMineCost) {
       final success = _rng.nextDouble() < copperMineChance;
       setState(() {
-        hammerfells -= 1;
-        if (success) {
-          copperOre += 1;
-        }
+        hammerfells -= copperMineCost;
+        if (success) copperOre += 1;
+        _saveGame();
       });
-      await _saveGame();
       return success;
     }
     return false;
   }
 
   Future<bool> mineGoldOre() async {
-    if (hammerfells >= 1) {
+    if (hammerfells >= goldMineCost) {
       final success = _rng.nextDouble() < goldMineChance;
       setState(() {
-        hammerfells -= 1;
-        if (success) {
-          goldOre += 1;
-        }
+        hammerfells -= goldMineCost;
+        if (success) goldOre += 1;
+        _saveGame();
       });
-      await _saveGame();
       return success;
     }
     return false;
   }
 
   Future<bool> mineDiamond() async {
-    if (hammerfells >= 1) {
+    if (hammerfells >= diamondMineCost) {
       final success = _rng.nextDouble() < diamondMineChance;
       setState(() {
-        hammerfells -= 1;
-        if (success) {
-          diamond += 1;
-        }
+        hammerfells -= diamondMineCost;
+        if (success) diamond += 1;
+        _saveGame();
       });
-      await _saveGame();
       return success;
     }
     return false;
   }
 
-  // Smelting functions (1 H each)
   void smeltIron() {
-    if (hammerfells >= smeltIronCost && ironOre >= 1) {
+    if (ironOre >= smeltIronCost && hammerfells >= 1) {
       setState(() {
-        hammerfells -= smeltIronCost;
-        ironOre -= 1;
+        ironOre -= smeltIronCost;
+        hammerfells -= 1;
         ironIngot += 1;
         _saveGame();
       });
@@ -227,10 +196,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   void smeltCopper() {
-    if (hammerfells >= smeltCopperCost && copperOre >= 1) {
+    if (copperOre >= smeltCopperCost && hammerfells >= 1) {
       setState(() {
-        hammerfells -= smeltCopperCost;
-        copperOre -= 1;
+        copperOre -= smeltCopperCost;
+        hammerfells -= 1;
         copperIngot += 1;
         _saveGame();
       });
@@ -238,10 +207,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   void smeltGold() {
-    if (hammerfells >= smeltGoldCost && goldOre >= 1) {
+    if (goldOre >= smeltGoldCost && hammerfells >= 1) {
       setState(() {
-        hammerfells -= smeltGoldCost;
-        goldOre -= 1;
+        goldOre -= smeltGoldCost;
+        hammerfells -= 1;
         goldIngot += 1;
         _saveGame();
       });
@@ -269,6 +238,39 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  Widget coinIcon(String asset) => SvgPicture.asset(asset, width: 20, height: 20);
+
+  Widget oreRow(String id, String label, int count, int cost, Color color, String assetPath) {
+    final scale = _rowScale[id] ?? 1.0;
+    final overlayColor = _rowOverlayColor[id];
+    
+    return Transform.scale(
+      scale: scale,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: overlayColor ?? color,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              SvgPicture.asset(assetPath, width: 20, height: 20),
+              const SizedBox(width: 10),
+              Text('$label: $count', style: TextStyle(color: _readableTextColor(color), fontWeight: FontWeight.w600)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _readableTextColor(Color background) {
+    return readableTextColor(background);
+  }
+
   void _showAddHammerfellsPopup() {
     // Try to position the popup near the hammer button; fall back to centered dialog
     final targetContext = _hammerButtonKey.currentContext;
@@ -292,7 +294,6 @@ class _HomePageState extends State<HomePage> {
     }
 
     final RenderBox rb = targetContext.findRenderObject() as RenderBox;
-    // If the RenderBox hasn't been laid out yet, retry after the current frame so localToGlobal works
     if (!rb.hasSize) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _showAddHammerfellsPopup());
       return;
@@ -430,135 +431,16 @@ class _HomePageState extends State<HomePage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
       ),
-      builder: (c) => const ForestModal(),
-    );
-  }
-
-  Color _darken(Color c, [double amount = 0.2]) { 
-    final hsl = HSLColor.fromColor(c);
-    final l = (hsl.lightness - amount).clamp(0.0, 1.0);
-    return hsl.withLightness(l).toColor();
-  }
-
-  Color _readableTextColor(Color bg) {
-    return bg.computeLuminance() > 0.55 ? Colors.black : Colors.white;
-  }
-
-  Widget oreRow(String id, String oreName, int oreAmount, int cost, Color bgColor, String svgAsset) {
-    final textColor = _readableTextColor(bgColor);
-    final scale = _rowScale[id] ?? 1.0;
-    final overlay = _rowOverlayColor[id];
-
-    // Pick icon color based on ore type
-    Color? iconColor;
-    if (id == 'iron') iconColor = const Color(0xFFB0BEC5);
-    else if (id == 'copper') iconColor = const Color(0xFFB87333);
-    else if (id == 'gold') iconColor = const Color(0xFFFFD700);
-    else if (id == 'diamond') iconColor = const Color(0xFF81D4FA);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: AnimatedScale(
-        scale: scale,
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        child: Stack(
-          children: [
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                children: [
-                  SvgPicture.asset(svgAsset, width: 20, height: 20),
-                  const SizedBox(width: 10),
-                  Text('$oreName: $oreAmount', style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
-            // Colored overlay for success/failure pulse
-            if (overlay != null)
-              Positioned.fill(
-                child: AnimatedOpacity(
-                  opacity: overlay != null ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 220),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: overlay,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-          ],
+      builder: (c) => Container(
+        padding: const EdgeInsets.all(16),
+        child: const Center(
+          child: Text('Forest coming soon...'),
         ),
       ),
     );
   }
 
-  Widget smeltRow(String ingotName, int ingotAmount, String oreName, int availableOre, VoidCallback onSmelt, Color bgColor, IconData icon) {
-    final canSmelt = hammerfells >= 1 && availableOre >= 1;
-    final textColor = _readableTextColor(bgColor);
-    final buttonColor = _darken(bgColor, 0.25);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Ingot: icon and count on the left
-            Row(
-              children: [
-                Icon(icon, size: 20, color: textColor),
-                const SizedBox(width: 10),
-                Text('$ingotName: $ingotAmount', style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
-              ],
-            ),
-            // Button and combined requirement on the right
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: buttonColor,
-                    foregroundColor: textColor,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
-                  onPressed: canSmelt ? onSmelt : null,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.local_fire_department, size: 18, color: textColor),
-                      const SizedBox(width: 8),
-                      Text('Furnace', style: TextStyle(color: textColor)),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '1 $oreName, 1 H',
-                  style: TextStyle(color: canSmelt ? textColor.withOpacity(0.85) : Colors.grey[400], fontSize: 12),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -778,342 +660,4 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class FurnaceModal extends StatefulWidget {
-  final int hammerfells;
-  final int ironOre;
-  final int copperOre;
-  final int goldOre;
-  final void Function(String) onSmelt;
-
-  const FurnaceModal({
-    super.key,
-    required this.hammerfells,
-    required this.ironOre,
-    required this.copperOre,
-    required this.goldOre,
-    required this.onSmelt,
-  });
-
-  @override
-  State<FurnaceModal> createState() => _FurnaceModalState();
-}
-
-class _FurnaceModalState extends State<FurnaceModal> with SingleTickerProviderStateMixin {
-  bool _isSmelting = false;
-  String? _selectedOre;
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 3))
-      ..addStatusListener((status) {
-        if (status == AnimationStatus.completed && _selectedOre != null) {
-          widget.onSmelt(_selectedOre!);
-          // Keep the modal open to allow multiple smelts; reset smelting state so another smelt can start
-          setState(() {
-            _isSmelting = false;
-            _selectedOre = null;
-          });
-          _controller.reset();
-        }
-      });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _startSmelt(String key) {
-    if (_isSmelting) return;
-    setState(() {
-      _isSmelting = true;
-      _selectedOre = key;
-      _controller.reset();
-      _controller.forward();
-    });
-  }
-
-  Widget _oreTile(String label, int available, String key, String svgAsset) {
-    final canSmelt = widget.hammerfells >= 1 && available >= 1;
-    final isThis = _isSmelting && _selectedOre == key;
-
-    return ListTile(
-      leading: SvgPicture.asset(svgAsset, width: 28, height: 28, colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.onSurface, BlendMode.srcIn)),
-      title: Text(label),
-      subtitle: Text('Available: $available'),
-      trailing: canSmelt
-          ? SizedBox(
-              width: 160,
-              height: 44,
-              child: AnimatedBuilder(
-                animation: _controller,
-                builder: (context, _) {
-                  final remaining = _controller.isAnimating ? (3 - (_controller.value * 3).floor()) : 3;
-                  return GestureDetector(
-                    onTap: _isSmelting ? null : () => _startSmelt(key),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        color: Theme.of(context).colorScheme.surface,
-                        child: Stack(
-                          children: [
-                            FractionallySizedBox(
-                              alignment: Alignment.centerLeft,
-                              widthFactor: isThis ? _controller.value : 0,
-                              child: Container(color: Colors.green.withOpacity(0.75)),
-                            ),
-                            Center(
-                              child: Text(
-                                _isSmelting ? (isThis ? 'Smelting ${remaining}s' : 'Busy') : 'Smelt',
-                                style: const TextStyle(fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            )
-          : const Text('Unavailable', style: TextStyle(color: Colors.grey)),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async => !_isSmelting,
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Furnace', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  IconButton(
-                    onPressed: _isSmelting ? null : () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Builder(builder: (context) {
-                final canSmeltAny = widget.hammerfells >= 1 && (widget.ironOre >= 1 || widget.copperOre >= 1 || widget.goldOre >= 1);
-                if (!canSmeltAny) {
-                  return Column(
-                    children: [
-                      const SizedBox(height: 12),
-                      const Text('No ores available to smelt.', style: TextStyle(fontSize: 14)),
-                      const SizedBox(height: 8),
-                      ElevatedButton(
-                        onPressed: _isSmelting ? null : () => Navigator.of(context).pop(),
-                        child: const Text('Close'),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                  );
-                }
-                return Column(
-                  children: [
-                    _oreTile('Iron Ore', widget.ironOre, 'iron', 'assets/images/iron_ore.svg'),
-                    _oreTile('Copper Ore', widget.copperOre, 'copper', 'assets/images/copper_ore.svg'),
-                    _oreTile('Gold Ore', widget.goldOre, 'gold', 'assets/images/gold_ore.svg'),
-                    const SizedBox(height: 12),
-                  ],
-                );
-              }),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class MineModal extends StatefulWidget {
-  final int hammerfells;
-  final Map<String, double>? miningChances;
-  final Future<bool> Function(String) onMine;
-
-  const MineModal({
-    super.key,
-    required this.hammerfells,
-    required this.onMine,
-    this.miningChances,
-  });
-
-  @override
-  _MineModalState createState() => _MineModalState();
-}
-
-enum _MineStatus { idle, loading, success, failure }
-
-class _MineModalState extends State<MineModal> with TickerProviderStateMixin {
-  final Map<String, _MineStatus> _statuses = {};
-  final Map<String, AnimationController> _controllers = {};
-  static const _progressDuration = Duration(milliseconds: 1000);
-  static const _colorHoldDuration = Duration(milliseconds: 800);
-
-  AnimationController _ensureController(String key) {
-    if (!_controllers.containsKey(key)) {
-      _controllers[key] = AnimationController(vsync: this, duration: _progressDuration)
-        ..addListener(() {
-          // rebuild to update visual progress
-          if (mounted) setState(() {});
-        });
-    }
-    return _controllers[key]!;
-  }
-
-  @override
-  void dispose() {
-    for (final c in _controllers.values) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  Widget _mineTile(BuildContext context, String label, int cost, String key, String svgAsset) {
-    final canMine = widget.hammerfells >= 1;
-    final chance = widget.miningChances != null ? (widget.miningChances![key] ?? 1.0) : 1.0;
-    final chancePct = (chance * 100).toStringAsFixed(0);
-    final status = _statuses[key] ?? _MineStatus.idle;
-    final controller = _ensureController(key);
-    final progress = controller.value.clamp(0.0, 1.0);
-
-    Widget buttonChild = Stack(
-      alignment: Alignment.center,
-      children: [
-        // Progress background
-        Positioned.fill(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: status == _MineStatus.idle ? 0.0 : (status == _MineStatus.loading ? progress : 1.0),
-              child: Container(
-                color: status == _MineStatus.success
-                    ? Colors.green
-                    : status == _MineStatus.failure
-                        ? Colors.orange
-                        : Colors.yellow,
-              ),
-            ),
-          ),
-        ),
-        // Label
-        const Center(child: Text('Mine', style: TextStyle(color: Colors.white))),
-      ],
-    );
-
-    return ListTile(
-      leading: SvgPicture.asset(svgAsset, width: 28, height: 28, colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.onSurface, BlendMode.srcIn)),
-      title: Text(label),
-      subtitle: Text('1 H • $chancePct% chance'),
-      trailing: canMine
-          ? ElevatedButton(
-              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10)),
-              onPressed: status == _MineStatus.loading
-                  ? null
-                  : () async {
-                      setState(() => _statuses[key] = _MineStatus.loading);
-                      final c = _ensureController(key);
-                      c.reset();
-
-                      // Start the progress animation
-                      await c.forward();
-                      // Then run the mining operation
-                      bool success = false;
-                      try {
-                        success = await widget.onMine(key);
-                      } catch (_) {
-                        success = false;
-                      }
-
-                      // Show color full and hold for a short moment
-                      setState(() => _statuses[key] = success ? _MineStatus.success : _MineStatus.failure);
-                      c.value = 1.0;
-                      await Future.delayed(_colorHoldDuration);
-
-                      // Reset UI
-                      if (mounted) setState(() => _statuses[key] = _MineStatus.idle);
-                      c.reset();
-                    },
-              child: SizedBox(width: 72, height: 36, child: buttonChild),
-            )
-          : const Text('Unavailable', style: TextStyle(color: Colors.grey)),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final canMineAny = widget.hammerfells >= 1; // at least copper cost
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Mine', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            if (!canMineAny) ...[
-              const SizedBox(height: 12),
-              const Text('Not enough Hammerfells to mine.', style: TextStyle(fontSize: 14)),
-              const SizedBox(height: 8),
-              ElevatedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
-              const SizedBox(height: 12),
-            ] else ...[
-              _mineTile(context, 'Iron Ore', 2, 'iron', 'assets/images/iron_ore.svg'),
-              _mineTile(context, 'Copper Ore', 1, 'copper', 'assets/images/copper_ore.svg'),
-              _mineTile(context, 'Gold Ore', 5, 'gold', 'assets/images/gold_ore.svg'),
-              _mineTile(context, 'Diamond', 10, 'diamond', 'assets/images/diamond.svg'),
-              const SizedBox(height: 12),
-            ]
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class ForestModal extends StatelessWidget {
-  const ForestModal({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Forest', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // Placeholder: leave empty for now
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
