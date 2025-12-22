@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'models/app_config.dart';
 import 'modals/furnace_modal.dart';
 import 'modals/mine_modal.dart';
@@ -15,6 +16,8 @@ import 'utils/color_utils.dart';
 import 'utils/animation_utils.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   runApp(const OreMinerApp());
 }
 
