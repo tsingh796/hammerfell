@@ -631,8 +631,25 @@ class _HomePageState extends State<HomePage> {
             // Top: Hammerfells and coins row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Coins
+                // Hammerfells button with value (left)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 90),
+                  child: ElevatedButton(
+                    key: _hammerButtonKey,
+                    onPressed: _showAddHammerfellsPopup,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey.shade200,
+                      foregroundColor: Colors.black,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    ),
+                    child: Text('$hammerfells', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  ),
+                ),
+                // Coins (right)
                 Row(
                   children: [
                     coinIcon('assets/images/copper_coin.svg'),
@@ -647,27 +664,6 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(width: 4),
                     Text('$goldCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
                   ],
-                ),
-                // Hammerfells button with value
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 72),
-                  child: ElevatedButton(
-                    key: _hammerButtonKey,
-                    onPressed: _showAddHammerfellsPopup,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black87,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('$hammerfells', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 4),
-                        const Text('H'),
-                      ],
-                    ),
-                  ),
                 ),
               ],
             ),
