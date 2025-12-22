@@ -9,6 +9,8 @@ import 'models/app_config.dart';
 import 'package:yaml/yaml.dart';
 import 'modals/furnace_modal.dart';
 import 'modals/mine_modal.dart';
+import 'modals/mine_search_modal.dart';
+import 'models/mine.dart';
 // import 'modals/forest_modal.dart';
 import 'widgets/ore_row.dart';
 import 'widgets/smelt_row.dart';
@@ -59,6 +61,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+    String? _lastEnteredMineOreType;
   int hammerfells = 10;
   int copperCoins = 0;
   int silverCoins = 0;
@@ -415,6 +418,7 @@ class _HomePageState extends State<HomePage> {
           else if (ore == 'copper') smeltCopper();
           else if (ore == 'gold') smeltGold();
         },
+        onClose: () => Navigator.of(c).pop(),
       ),
     );
   }
@@ -448,6 +452,11 @@ class _HomePageState extends State<HomePage> {
 
       ),
     );
+  }
+
+  void _openOreMine(String oreType) {
+    // Use the general mine modal for now
+    _openMine();
   }
 
   Widget _oreIconValue(String id, String name, int value, Color color, String asset) {
@@ -527,6 +536,7 @@ class _HomePageState extends State<HomePage> {
               const Divider(),
               Expanded(
                 child: ListView(
+                  padding: EdgeInsets.zero,
                   children: [
                     ListTile(title: const Text('Hammerfells'), trailing: Text('$hammerfells')),
                     const Divider(),
@@ -678,40 +688,88 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       ElevatedButton.icon(
                         onPressed: () {
-                          showDialog(
-                            context: context,
-                            barrierDismissible: true,
-                            builder: (context) => Center(
-                              child: FractionallySizedBox(
-                                widthFactor: 0.7,
-                                heightFactor: 0.7,
-                                child: Material(
-                                  color: Theme.of(context).dialogBackgroundColor,
-                                  borderRadius: BorderRadius.circular(16),
-                                  clipBehavior: Clip.antiAlias,
-                                  child: MineModal(
-                                    hammerfells: hammerfells,
-                                    miningChances: {
-                                      'iron': ironMineChance,
-                                      'copper': copperMineChance,
-                                      'gold': goldMineChance,
-                                      'diamond': diamondMineChance,
-                                    },
-                                    onMine: (ore) async {
-                                      bool success = false;
-                                      if (ore == 'iron') success = await mineIronOre();
-                                      else if (ore == 'copper') success = await mineCopperOre();
-                                      else if (ore == 'gold') success = await mineGoldOre();
-                                      else if (ore == 'diamond') success = await mineDiamond();
-                                      _pulseRow(ore, success);
-                                      return success;
-                                    },
-                                    onClose: () => Navigator.of(context).pop(),
+                          if (_lastEnteredMineOreType != null) {
+                            showDialog(
+                              context: context,
+                              barrierDismissible: true,
+                              builder: (context) {
+                                final oreName = _lastEnteredMineOreType![0].toUpperCase() + _lastEnteredMineOreType!.substring(1);
+                                return AlertDialog(
+                                  title: const Text('Enter Mine'),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      ElevatedButton(
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                          _openOreMine(_lastEnteredMineOreType!);
+                                        },
+                                        child: Text('Enter $oreName Mine'),
+                                        style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      OutlinedButton(
+                                        onPressed: () {
+                                          Navigator.of(context).pop();
+                                          showDialog(
+                                            context: context,
+                                            barrierDismissible: true,
+                                            builder: (context) => Center(
+                                              child: FractionallySizedBox(
+                                                widthFactor: 0.8,
+                                                heightFactor: 0.7,
+                                                child: Material(
+                                                  color: Theme.of(context).dialogBackgroundColor,
+                                                  borderRadius: BorderRadius.circular(16),
+                                                  clipBehavior: Clip.antiAlias,
+                                                  child: MineSearchModal(
+                                                    onEnterMine: (mine) {
+                                                      Navigator.of(context).pop();
+                                                      _openOreMine(mine.oreType);
+                                                      setState(() {
+                                                        _lastEnteredMineOreType = mine.oreType;
+                                                      });
+                                                    },
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        child: const Text('Search New Mine'),
+                                        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          } else {
+                            showDialog(
+                              context: context,
+                              barrierDismissible: true,
+                              builder: (context) => Center(
+                                child: FractionallySizedBox(
+                                  widthFactor: 0.8,
+                                  heightFactor: 0.7,
+                                  child: Material(
+                                    color: Theme.of(context).dialogBackgroundColor,
+                                    borderRadius: BorderRadius.circular(16),
+                                    clipBehavior: Clip.antiAlias,
+                                    child: MineSearchModal(
+                                      onEnterMine: (mine) {
+                                        Navigator.of(context).pop();
+                                        _openOreMine(mine.oreType);
+                                        setState(() {
+                                          _lastEnteredMineOreType = mine.oreType;
+                                        });
+                                      },
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          );
+                            );
+                          }
                         },
                         icon: const Icon(Icons.construction),
                         label: const Text('Mine'),
@@ -719,82 +777,15 @@ class _HomePageState extends State<HomePage> {
                       ),
                       const SizedBox(width: 16),
                       ElevatedButton.icon(
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            barrierDismissible: true,
-                            builder: (context) => Center(
-                              child: FractionallySizedBox(
-                                widthFactor: 0.7,
-                                heightFactor: 0.7,
-                                child: Material(
-                                  color: Theme.of(context).dialogBackgroundColor,
-                                  borderRadius: BorderRadius.circular(16),
-                                  clipBehavior: Clip.antiAlias,
-                                  child: FurnaceModal(
-                                    hammerfells: hammerfells,
-                                    ironOre: ironOre,
-                                    copperOre: copperOre,
-                                    goldOre: goldOre,
-                                    onSmelt: (ore) {
-                                      if (ore == 'iron') smeltIron();
-                                      else if (ore == 'copper') smeltCopper();
-                                      else if (ore == 'gold') smeltGold();
-                                    },
-                                    onClose: () => Navigator.of(context).pop(),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                        icon: SvgPicture.asset('assets/images/furnace.svg', width: 18, height: 18),
+                        onPressed: _openFurnace,
+                        icon: const Icon(Icons.local_fire_department),
                         label: const Text('Furnace'),
                         style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
                       ),
                       const SizedBox(width: 16),
                       ElevatedButton.icon(
                         onPressed: () {
-                          showDialog(
-                            context: context,
-                            barrierDismissible: true,
-                            builder: (context) => Center(
-                              child: FractionallySizedBox(
-                                widthFactor: 0.8,
-                                heightFactor: 0.7,
-                                child: Material(
-                                  color: Theme.of(context).dialogBackgroundColor,
-                                  borderRadius: BorderRadius.circular(16),
-                                  clipBehavior: Clip.antiAlias,
-                                  child: SafeArea(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(12),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              const Text('Forest', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                              IconButton(
-                                                onPressed: () => Navigator.of(context).pop(),
-                                                icon: const Icon(Icons.close),
-                                              ),
-                                            ],
-                                          ),
-                                          const Expanded(
-                                            child: Center(
-                                              child: Text(''),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
+                          // Forest functionality placeholder
                         },
                         icon: const Icon(Icons.park),
                         label: const Text('Forest'),

@@ -109,60 +109,71 @@ class _FurnaceModalState extends State<FurnaceModal> with SingleTickerProviderSt
 
 	@override
 	Widget build(BuildContext context) {
-		return WillPopScope(
-			onWillPop: () async => !_isSmelting,
-			child: SafeArea(
-				child: LayoutBuilder(
-					builder: (context, constraints) {
-						return Padding(
-							padding: const EdgeInsets.all(12),
-							child: ConstrainedBox(
-								constraints: BoxConstraints(maxHeight: constraints.maxHeight),
-								child: Column(
-									children: [
-										Row(
-											mainAxisAlignment: MainAxisAlignment.spaceBetween,
-											children: [
-												const Text('Furnace', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-												IconButton(
-													onPressed: _isSmelting ? null : widget.onClose,
-													icon: const Icon(Icons.close),
-												),
-											],
-										),
-										const SizedBox(height: 8),
-										Expanded(
-											child: Builder(builder: (context) {
-												final canSmeltAny = widget.hammerfells >= 1 && (widget.ironOre >= 1 || widget.copperOre >= 1 || widget.goldOre >= 1);
-												if (!canSmeltAny) {
-													return ListView(
+		return Center(
+			child: FractionallySizedBox(
+				widthFactor: 0.8,
+				heightFactor: 0.7,
+				child: Material(
+					color: Theme.of(context).dialogBackgroundColor,
+					borderRadius: BorderRadius.circular(16),
+					clipBehavior: Clip.antiAlias,
+					child: WillPopScope(
+						onWillPop: () async => !_isSmelting,
+						child: SafeArea(
+							child: LayoutBuilder(
+								builder: (context, constraints) {
+									return Padding(
+										padding: const EdgeInsets.all(12),
+										child: ConstrainedBox(
+											constraints: BoxConstraints(maxHeight: constraints.maxHeight),
+											child: Column(
+												children: [
+													Row(
+														mainAxisAlignment: MainAxisAlignment.spaceBetween,
 														children: [
-															const SizedBox(height: 12),
-															const Text('No ores available to smelt.', style: TextStyle(fontSize: 14)),
-															const SizedBox(height: 8),
-															ElevatedButton(
+															const Text('Furnace', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+															IconButton(
 																onPressed: _isSmelting ? null : widget.onClose,
-																child: const Text('Close'),
+																icon: const Icon(Icons.close),
 															),
-															const SizedBox(height: 12),
 														],
-													);
-												}
-												return ListView(
-													children: [
-														_oreTile('Iron Ore', widget.ironOre, 'iron', 'assets/images/iron_ore.svg'),
-														_oreTile('Copper Ore', widget.copperOre, 'copper', 'assets/images/copper_ore.svg'),
-														_oreTile('Gold Ore', widget.goldOre, 'gold', 'assets/images/gold_ore.svg'),
-														const SizedBox(height: 12),
-													],
-												);
-											}),
+													),
+													const SizedBox(height: 8),
+													Expanded(
+														child: Builder(builder: (context) {
+															final canSmeltAny = widget.hammerfells >= 1 && (widget.ironOre >= 1 || widget.copperOre >= 1 || widget.goldOre >= 1);
+															if (!canSmeltAny) {
+																return ListView(
+																	children: [
+																		const SizedBox(height: 12),
+																		const Text('No ores available to smelt.', style: TextStyle(fontSize: 14)),
+																		const SizedBox(height: 8),
+																		ElevatedButton(
+																			onPressed: _isSmelting ? null : widget.onClose,
+																			child: const Text('Close'),
+																		),
+																		const SizedBox(height: 12),
+																	],
+																);
+															}
+															return ListView(
+																children: [
+																	_oreTile('Iron Ore', widget.ironOre, 'iron', 'assets/images/iron_ore.svg'),
+																	_oreTile('Copper Ore', widget.copperOre, 'copper', 'assets/images/copper_ore.svg'),
+																	_oreTile('Gold Ore', widget.goldOre, 'gold', 'assets/images/gold_ore.svg'),
+																	const SizedBox(height: 12),
+																],
+															);
+														}),
+													),
+												],
+											),
 										),
-									],
-								),
+									);
+								},
 							),
-						);
-					},
+						),
+					),
 				),
 			),
 		);
