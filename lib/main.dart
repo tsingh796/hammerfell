@@ -515,21 +515,26 @@ class _HomePageState extends State<HomePage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Hammerfells button with value (left)
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 90),
-                  child: ElevatedButton(
-                    key: _hammerButtonKey,
-                    onPressed: _showAddHammerfellsPopup,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey.shade200,
-                      foregroundColor: Colors.black,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                Row(
+                  children: [
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 90),
+                      child: ElevatedButton(
+                        key: _hammerButtonKey,
+                        onPressed: _showAddHammerfellsPopup,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                        ),
+                        child: Text('$hammerfells', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                      ),
                     ),
-                    child: Text('$hammerfells', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                  ),
+                    const SizedBox(width: 10),
+                    const Text('Hammerfells', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                  ],
                 ),
                 // Coins (right)
                 Row(
