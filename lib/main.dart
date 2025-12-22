@@ -32,6 +32,9 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int hammerfells = 10;
+  int copperCoins = 0;
+  int silverCoins = 0;
+  int goldCoins = 0;
 
   // Ores
   int ironOre = 0;
@@ -446,6 +449,13 @@ class _HomePageState extends State<HomePage> {
     final scale = _rowScale[id] ?? 1.0;
     final overlay = _rowOverlayColor[id];
 
+    // Pick icon color based on ore type
+    Color? iconColor;
+    if (id == 'iron') iconColor = const Color(0xFFB0BEC5);
+    else if (id == 'copper') iconColor = const Color(0xFFB87333);
+    else if (id == 'gold') iconColor = const Color(0xFFFFD700);
+    else if (id == 'diamond') iconColor = const Color(0xFF81D4FA);
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: AnimatedScale(
@@ -462,21 +472,10 @@ class _HomePageState extends State<HomePage> {
               ),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Left: icon and name/amount
-                  Row(
-                    children: [
-                      SvgPicture.asset(svgAsset, width: 20, height: 20, colorFilter: ColorFilter.mode(textColor, BlendMode.srcIn)),
-                      const SizedBox(width: 10),
-                      Text('$oreName: $oreAmount', style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                  // Right: H cost only
-                  Text(
-                    '$cost H',
-                    style: TextStyle(color: textColor.withOpacity(0.85), fontSize: 12),
-                  ),
+                  SvgPicture.asset(svgAsset, width: 20, height: 20),
+                  const SizedBox(width: 10),
+                  Text('$oreName: $oreAmount', style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
                 ],
               ),
             ),
@@ -564,10 +563,12 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     // Card colors for ores/ingots
-    final Color ironColor = Colors.grey.shade800;
-    final Color copperColor = const Color(0xFFB87333);
-    final Color goldColor = Colors.amber.shade700;
-    final Color diamondColor = const Color(0xFF81D4FA);
+    final Color ironColor = const Color(0xFFB0BEC5); // bluish gray
+    final Color copperColor = const Color(0xFFB87333); // copper
+    final Color goldColor = const Color(0xFFFFD700); // gold
+    final Color diamondColor = const Color(0xFF81D4FA); // light blue
+    final Color silverColor = const Color(0xFFC0C0C0); // silver
+    Widget coinIcon(String asset) => SvgPicture.asset(asset, width: 20, height: 20);
     return Scaffold(
       drawer: Drawer(
         child: SafeArea(
@@ -620,42 +621,58 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
-      appBar: AppBar(title: const Text('Ore Miner Deluxe')),
+      appBar: null,
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            // Top: Hammerfells + quick-add button
+            // Top: Hammerfells and coins row
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: Text(
-                    'Hammerfells: $hammerfells',
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.right,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
+                // Coins
+                Row(
+                  children: [
+                    coinIcon('assets/images/copper_coin.svg'),
+                    const SizedBox(width: 4),
+                    Text('$copperCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 12),
+                    coinIcon('assets/images/silver_coin.svg'),
+                    const SizedBox(width: 4),
+                    Text('$silverCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 12),
+                    coinIcon('assets/images/gold_coin.svg'),
+                    const SizedBox(width: 4),
+                    Text('$goldCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ],
                 ),
-                const SizedBox(width: 8),
+                // Hammerfells button with value
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 56),
+                  constraints: const BoxConstraints(maxWidth: 72),
                   child: ElevatedButton(
                     key: _hammerButtonKey,
                     onPressed: _showAddHammerfellsPopup,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.black87,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
-                    child: const Text('H'),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('$hammerfells', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(width: 4),
+                        const Text('H'),
+                      ],
+                    ),
                   ),
                 ),
               ],
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 18),
 
             // Main content: ores and ingots
             Flexible(
@@ -681,7 +698,7 @@ class _HomePageState extends State<HomePage> {
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       child: Row(
                         children: [
-                          SvgPicture.asset('assets/images/iron_ingot.svg', width: 20, height: 20, colorFilter: ColorFilter.mode(_readableTextColor(ironColor), BlendMode.srcIn)),
+                          SvgPicture.asset('assets/images/iron_ingot.svg', width: 20, height: 20),
                           const SizedBox(width: 10),
                           Text('Iron Ingot: $ironIngot', style: TextStyle(color: _readableTextColor(ironColor), fontWeight: FontWeight.w600)),
                         ],
@@ -699,7 +716,7 @@ class _HomePageState extends State<HomePage> {
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       child: Row(
                         children: [
-                          SvgPicture.asset('assets/images/copper_ingot.svg', width: 20, height: 20, colorFilter: ColorFilter.mode(_readableTextColor(copperColor), BlendMode.srcIn)),
+                          SvgPicture.asset('assets/images/copper_ingot.svg', width: 20, height: 20),
                           const SizedBox(width: 10),
                           Text('Copper Ingot: $copperIngot', style: TextStyle(color: _readableTextColor(copperColor), fontWeight: FontWeight.w600)),
                         ],
@@ -717,7 +734,7 @@ class _HomePageState extends State<HomePage> {
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       child: Row(
                         children: [
-                          SvgPicture.asset('assets/images/gold_ingot.svg', width: 20, height: 20, colorFilter: ColorFilter.mode(_readableTextColor(goldColor), BlendMode.srcIn)),
+                          SvgPicture.asset('assets/images/gold_ingot.svg', width: 20, height: 20),
                           const SizedBox(width: 10),
                           Text('Gold Ingot: $goldIngot', style: TextStyle(color: _readableTextColor(goldColor), fontWeight: FontWeight.w600)),
                         ],
