@@ -441,24 +441,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _openForest() {
-    showModalBottomSheet(
-      context: context,
-      isDismissible: true,
-      enableDrag: true,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-      ),
-      builder: (c) => Container(
-        padding: const EdgeInsets.all(16),
-        child: const Center(
-          child: Text('Forest coming soon...'),
-        ),
-      ),
-    );
-  }
-
   Widget _oreIconValue(String id, String name, int value, Color color, String asset) {
     return GestureDetector(
       onTap: () => setState(() => _showOreName[id] = !_showOreName[id]!),
@@ -764,9 +746,46 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(width: 16),
                       ElevatedButton.icon(
                         onPressed: () {
-                          setState(() {
-                            _centerModal = null; // Placeholder, can add forest modal later
-                          });
+                          showDialog(
+                            context: context,
+                            barrierDismissible: true,
+                            builder: (context) => Center(
+                              child: FractionallySizedBox(
+                                widthFactor: 0.8,
+                                heightFactor: 0.7,
+                                child: Material(
+                                  color: Theme.of(context).dialogBackgroundColor,
+                                  borderRadius: BorderRadius.circular(16),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: SafeArea(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              const Text('Forest', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                              IconButton(
+                                                onPressed: () => Navigator.of(context).pop(),
+                                                icon: const Icon(Icons.close),
+                                              ),
+                                            ],
+                                          ),
+                                          const Expanded(
+                                            child: Center(
+                                              child: Text(''),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
                         },
                         icon: const Icon(Icons.park),
                         label: const Text('Forest'),
