@@ -15,6 +15,22 @@ import 'widgets/coin_icon.dart';
 import 'utils/color_utils.dart';
 import 'utils/animation_utils.dart';
 
+// Which modal to show in the center column
+String? _centerModal; // 'mine', 'furnace', or null
+
+// State for showing ore/ingot names on tap
+final Map<String, bool> _showOreName = {
+  'iron': false,
+  'copper': false,
+  'gold': false,
+  'diamond': false,
+};
+final Map<String, bool> _showIngotName = {
+  'iron': false,
+  'copper': false,
+  'gold': false,
+};
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -443,7 +459,61 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Widget _oreIconValue(String id, String name, int value, Color color, String asset) {
+    return GestureDetector(
+      onTap: () => setState(() => _showOreName[id] = !_showOreName[id]!),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Container(
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SvgPicture.asset(asset, width: 24, height: 24),
+              const SizedBox(width: 8),
+              Text('$value', style: TextStyle(color: readableTextColor(color), fontWeight: FontWeight.bold, fontSize: 16)),
+              if (_showOreName[id]!) ...[
+                const SizedBox(width: 8),
+                Text(name, style: TextStyle(color: readableTextColor(color), fontWeight: FontWeight.w600)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
+  Widget _ingotIconValue(String id, String name, int value, Color color, String asset) {
+    return GestureDetector(
+      onTap: () => setState(() => _showIngotName[id] = !_showIngotName[id]!),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Container(
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SvgPicture.asset(asset, width: 24, height: 24),
+              const SizedBox(width: 8),
+              Text('$value', style: TextStyle(color: readableTextColor(color), fontWeight: FontWeight.bold, fontSize: 16)),
+              if (_showIngotName[id]!) ...[
+                const SizedBox(width: 8),
+                Text(name, style: TextStyle(color: readableTextColor(color), fontWeight: FontWeight.w600)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -507,161 +577,207 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
       appBar: null,
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            // Top: Hammerfells and coins row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Row(
-                  children: [
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 90),
-                      child: ElevatedButton(
-                        key: _hammerButtonKey,
-                        onPressed: _showAddHammerfellsPopup,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      body: SafeArea(
+        child: Container(
+          width: double.infinity,
+          height: double.infinity,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              // Top: Hammerfells and coins row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 90),
+                        child: ElevatedButton(
+                          key: _hammerButtonKey,
+                          onPressed: _showAddHammerfellsPopup,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                          ),
+                          child: Text('$hammerfells', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                         ),
-                        child: Text('$hammerfells', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Text('Hammerfells', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-                  ],
-                ),
-                // Coins (right)
-                Row(
+                      const SizedBox(width: 10),
+                      const Text('Hammerfells', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                    ],
+                  ),
+                  // Coins (right)
+                  Row(
+                    children: [
+                      coinIcon('assets/images/copper_coin.svg'),
+                      const SizedBox(width: 4),
+                      Text('$copperCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 12),
+                      coinIcon('assets/images/silver_coin.svg'),
+                      const SizedBox(width: 4),
+                      Text('$silverCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 12),
+                      coinIcon('assets/images/gold_coin.svg'),
+                      const SizedBox(width: 4),
+                      Text('$goldCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ],
+              ),
+              // Main content: 3 columns (ores | modal | ingots)
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    coinIcon('assets/images/copper_coin.svg'),
-                    const SizedBox(width: 4),
-                    Text('$copperCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(width: 12),
-                    coinIcon('assets/images/silver_coin.svg'),
-                    const SizedBox(width: 4),
-                    Text('$silverCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(width: 12),
-                    coinIcon('assets/images/gold_coin.svg'),
-                    const SizedBox(width: 4),
-                    Text('$goldCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    // Left: Ores (icon + value, tap to show name)
+                    SizedBox(
+                      width: 56,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _oreIconValue('iron', 'Iron Ore', ironOre, ironColor, 'assets/images/iron_ore.svg'),
+                          _oreIconValue('copper', 'Copper Ore', copperOre, copperColor, 'assets/images/copper_ore.svg'),
+                          _oreIconValue('gold', 'Gold Ore', goldOre, goldColor, 'assets/images/gold_ore.svg'),
+                          _oreIconValue('diamond', 'Diamond', diamond, diamondColor, 'assets/images/diamond.svg'),
+                        ],
+                      ),
+                    ),
+                    // Center: Modal area (just a placeholder now)
+                    Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '', // Placeholder for modal content
+                            style: TextStyle(color: Colors.white.withOpacity(0.5)),
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Right: Ingots (icon + value, tap to show name)
+                    SizedBox(
+                      width: 56,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _ingotIconValue('iron', 'Iron Ingot', ironIngot, ironColor, 'assets/images/iron_ingot.svg'),
+                          _ingotIconValue('copper', 'Copper Ingot', copperIngot, copperColor, 'assets/images/copper_ingot.svg'),
+                          _ingotIconValue('gold', 'Gold Ingot', goldIngot, goldColor, 'assets/images/gold_ingot.svg'),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-              ],
-            ),
-
-            const SizedBox(height: 18),
-
-            // Main content: ores and ingots
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  oreRow('iron', 'Iron Ore', ironOre, 2, ironColor, 'assets/images/iron_ore.svg'),
-                  oreRow('copper', 'Copper Ore', copperOre, 1, copperColor, 'assets/images/copper_ore.svg'),
-                  oreRow('gold', 'Gold Ore', goldOre, 5, goldColor, 'assets/images/gold_ore.svg'),
-                  oreRow('diamond', 'Diamond', diamond, 10, diamondColor, 'assets/images/diamond.svg'),
-                  const SizedBox(height: 20),
-
-                  // Display ingots (counts only); smelting is done via the single Furnace button below
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: ironColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      child: Row(
-                        children: [
-                          SvgPicture.asset('assets/images/iron_ingot.svg', width: 20, height: 20),
-                          const SizedBox(width: 10),
-                          Text('Iron Ingot: $ironIngot', style: TextStyle(color: _readableTextColor(ironColor), fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: copperColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      child: Row(
-                        children: [
-                          SvgPicture.asset('assets/images/copper_ingot.svg', width: 20, height: 20),
-                          const SizedBox(width: 10),
-                          Text('Copper Ingot: $copperIngot', style: TextStyle(color: _readableTextColor(copperColor), fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: goldColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      child: Row(
-                        children: [
-                          SvgPicture.asset('assets/images/gold_ingot.svg', width: 20, height: 20),
-                          const SizedBox(width: 10),
-                          Text('Gold Ingot: $goldIngot', style: TextStyle(color: _readableTextColor(goldColor), fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
               ),
-            ),
-
-            // Bottom: action buttons
-            Align(
-              alignment: Alignment.centerRight,
-              child: Wrap(
-                spacing: 10,
-                runSpacing: 8,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () => _openMine(),
-                    icon: const Icon(Icons.construction),
-                    label: const Text('Mine'),
-                    style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+              // Bottom: action buttons always at bottom
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            barrierDismissible: true,
+                            builder: (context) => Center(
+                              child: FractionallySizedBox(
+                                widthFactor: 0.7,
+                                heightFactor: 0.7,
+                                child: Material(
+                                  color: Theme.of(context).dialogBackgroundColor,
+                                  borderRadius: BorderRadius.circular(16),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: MineModal(
+                                    hammerfells: hammerfells,
+                                    miningChances: {
+                                      'iron': ironMineChance,
+                                      'copper': copperMineChance,
+                                      'gold': goldMineChance,
+                                      'diamond': diamondMineChance,
+                                    },
+                                    onMine: (ore) async {
+                                      bool success = false;
+                                      if (ore == 'iron') success = await mineIronOre();
+                                      else if (ore == 'copper') success = await mineCopperOre();
+                                      else if (ore == 'gold') success = await mineGoldOre();
+                                      else if (ore == 'diamond') success = await mineDiamond();
+                                      _pulseRow(ore, success);
+                                      return success;
+                                    },
+                                    onClose: () => Navigator.of(context).pop(),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.construction),
+                        label: const Text('Mine'),
+                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                      ),
+                      const SizedBox(width: 16),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            barrierDismissible: true,
+                            builder: (context) => Center(
+                              child: FractionallySizedBox(
+                                widthFactor: 0.7,
+                                heightFactor: 0.7,
+                                child: Material(
+                                  color: Theme.of(context).dialogBackgroundColor,
+                                  borderRadius: BorderRadius.circular(16),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: FurnaceModal(
+                                    hammerfells: hammerfells,
+                                    ironOre: ironOre,
+                                    copperOre: copperOre,
+                                    goldOre: goldOre,
+                                    onSmelt: (ore) {
+                                      if (ore == 'iron') smeltIron();
+                                      else if (ore == 'copper') smeltCopper();
+                                      else if (ore == 'gold') smeltGold();
+                                    },
+                                    onClose: () => Navigator.of(context).pop(),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                        icon: SvgPicture.asset('assets/images/furnace.svg', width: 18, height: 18),
+                        label: const Text('Furnace'),
+                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                      ),
+                      const SizedBox(width: 16),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _centerModal = null; // Placeholder, can add forest modal later
+                          });
+                        },
+                        icon: const Icon(Icons.park),
+                        label: const Text('Forest'),
+                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                      ),
+                    ],
                   ),
-                  ElevatedButton.icon(
-                    onPressed: () => _openFurnace(),
-                    icon: SvgPicture.asset('assets/images/furnace.svg', width: 18, height: 18),
-                    label: const Text('Furnace'),
-                    style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: () => _openForest(),
-                    icon: const Icon(Icons.park),
-                    label: const Text('Forest'),
-                    style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
-                  ),
-                ],
+                ),
               ),
-            ),
-
-            const SizedBox(height: 12),
-          ],
+            ],
+          ),
         ),
       ),
     );

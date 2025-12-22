@@ -5,12 +5,14 @@ class MineModal extends StatefulWidget {
 	final int hammerfells;
 	final Map<String, double>? miningChances;
 	final Future<bool> Function(String) onMine;
+	final VoidCallback? onClose; // Initialize final onClose field in MineModal constructor
 
 	const MineModal({
 		super.key,
 		required this.hammerfells,
 		required this.onMine,
 		this.miningChances,
+		this.onClose,
 	});
 
 	@override
@@ -113,34 +115,46 @@ class _MineModalState extends State<MineModal> with TickerProviderStateMixin {
 	Widget build(BuildContext context) {
 		final canMineAny = widget.hammerfells >= 1;
 		return SafeArea(
-			child: Padding(
-				padding: const EdgeInsets.all(12),
-				child: Column(
-					mainAxisSize: MainAxisSize.min,
-					children: [
-						Row(
-							mainAxisAlignment: MainAxisAlignment.spaceBetween,
-							children: [
-								const Text('Mine', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-								IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
-							],
+			child: LayoutBuilder(
+				builder: (context, constraints) {
+					return Padding(
+						padding: const EdgeInsets.all(12),
+						child: ConstrainedBox(
+							constraints: BoxConstraints(maxHeight: constraints.maxHeight),
+							child: Column(
+								children: [
+									Row(
+										mainAxisAlignment: MainAxisAlignment.spaceBetween,
+										children: [
+											const Text('Mine', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+											IconButton(onPressed: widget.onClose, icon: const Icon(Icons.close)),
+										],
+									),
+									const SizedBox(height: 8),
+									if (!canMineAny) ...[
+										const SizedBox(height: 12),
+										const Text('Not enough Hammerfells to mine.', style: TextStyle(fontSize: 14)),
+										const SizedBox(height: 8),
+										ElevatedButton(onPressed: widget.onClose, child: const Text('Close')),
+										const SizedBox(height: 12),
+									] else ...[
+										Expanded(
+											child: ListView(
+												children: [
+													_mineTile(context, 'Iron Ore', 2, 'iron', 'assets/images/iron_ore.svg'),
+													_mineTile(context, 'Copper Ore', 1, 'copper', 'assets/images/copper_ore.svg'),
+													_mineTile(context, 'Gold Ore', 5, 'gold', 'assets/images/gold_ore.svg'),
+													_mineTile(context, 'Diamond', 10, 'diamond', 'assets/images/diamond.svg'),
+												],
+											),
+										),
+										const SizedBox(height: 12),
+									]
+								],
+							),
 						),
-						const SizedBox(height: 8),
-						if (!canMineAny) ...[
-							const SizedBox(height: 12),
-							const Text('Not enough Hammerfells to mine.', style: TextStyle(fontSize: 14)),
-							const SizedBox(height: 8),
-							ElevatedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
-							const SizedBox(height: 12),
-						] else ...[
-							_mineTile(context, 'Iron Ore', 2, 'iron', 'assets/images/iron_ore.svg'),
-							_mineTile(context, 'Copper Ore', 1, 'copper', 'assets/images/copper_ore.svg'),
-							_mineTile(context, 'Gold Ore', 5, 'gold', 'assets/images/gold_ore.svg'),
-							_mineTile(context, 'Diamond', 10, 'diamond', 'assets/images/diamond.svg'),
-							const SizedBox(height: 12),
-						]
-					],
-				),
+					);
+				},
 			),
 		);
 	}

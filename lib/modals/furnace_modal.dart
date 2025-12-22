@@ -7,6 +7,7 @@ class FurnaceModal extends StatefulWidget {
 	final int copperOre;
 	final int goldOre;
 	final void Function(String) onSmelt;
+	final VoidCallback? onClose;
 
 	const FurnaceModal({
 		super.key,
@@ -15,6 +16,7 @@ class FurnaceModal extends StatefulWidget {
 		required this.copperOre,
 		required this.goldOre,
 		required this.onSmelt,
+		this.onClose,
 	});
 
 	@override
@@ -110,49 +112,57 @@ class _FurnaceModalState extends State<FurnaceModal> with SingleTickerProviderSt
 		return WillPopScope(
 			onWillPop: () async => !_isSmelting,
 			child: SafeArea(
-				child: Padding(
-					padding: const EdgeInsets.all(12),
-					child: Column(
-						mainAxisSize: MainAxisSize.min,
-						children: [
-							Row(
-								mainAxisAlignment: MainAxisAlignment.spaceBetween,
-								children: [
-									const Text('Furnace', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-									IconButton(
-										onPressed: _isSmelting ? null : () => Navigator.of(context).pop(),
-										icon: const Icon(Icons.close),
-									),
-								],
-							),
-							const SizedBox(height: 8),
-							Builder(builder: (context) {
-								final canSmeltAny = widget.hammerfells >= 1 && (widget.ironOre >= 1 || widget.copperOre >= 1 || widget.goldOre >= 1);
-								if (!canSmeltAny) {
-									return Column(
-										children: [
-											const SizedBox(height: 12),
-											const Text('No ores available to smelt.', style: TextStyle(fontSize: 14)),
-											const SizedBox(height: 8),
-											ElevatedButton(
-												onPressed: _isSmelting ? null : () => Navigator.of(context).pop(),
-												child: const Text('Close'),
-											),
-											const SizedBox(height: 12),
-										],
-									);
-								}
-								return Column(
+				child: LayoutBuilder(
+					builder: (context, constraints) {
+						return Padding(
+							padding: const EdgeInsets.all(12),
+							child: ConstrainedBox(
+								constraints: BoxConstraints(maxHeight: constraints.maxHeight),
+								child: Column(
 									children: [
-										_oreTile('Iron Ore', widget.ironOre, 'iron', 'assets/images/iron_ore.svg'),
-										_oreTile('Copper Ore', widget.copperOre, 'copper', 'assets/images/copper_ore.svg'),
-										_oreTile('Gold Ore', widget.goldOre, 'gold', 'assets/images/gold_ore.svg'),
-										const SizedBox(height: 12),
+										Row(
+											mainAxisAlignment: MainAxisAlignment.spaceBetween,
+											children: [
+												const Text('Furnace', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+												IconButton(
+													onPressed: _isSmelting ? null : widget.onClose,
+													icon: const Icon(Icons.close),
+												),
+											],
+										),
+										const SizedBox(height: 8),
+										Expanded(
+											child: Builder(builder: (context) {
+												final canSmeltAny = widget.hammerfells >= 1 && (widget.ironOre >= 1 || widget.copperOre >= 1 || widget.goldOre >= 1);
+												if (!canSmeltAny) {
+													return ListView(
+														children: [
+															const SizedBox(height: 12),
+															const Text('No ores available to smelt.', style: TextStyle(fontSize: 14)),
+															const SizedBox(height: 8),
+															ElevatedButton(
+																onPressed: _isSmelting ? null : widget.onClose,
+																child: const Text('Close'),
+															),
+															const SizedBox(height: 12),
+														],
+													);
+												}
+												return ListView(
+													children: [
+														_oreTile('Iron Ore', widget.ironOre, 'iron', 'assets/images/iron_ore.svg'),
+														_oreTile('Copper Ore', widget.copperOre, 'copper', 'assets/images/copper_ore.svg'),
+														_oreTile('Gold Ore', widget.goldOre, 'gold', 'assets/images/gold_ore.svg'),
+														const SizedBox(height: 12),
+													],
+												);
+											}),
+										),
 									],
-								);
-							}),
-						],
-					),
+								),
+							),
+						);
+					},
 				),
 			),
 		);
