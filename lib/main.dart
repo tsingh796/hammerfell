@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:yaml/yaml.dart';
 import 'widgets/furnace_widget.dart';
+import 'widgets/chest_widget.dart';
 import 'modals/mine_modal.dart';
 import 'utils/color_utils.dart';
 // import 'modals/forest_modal.dart';
@@ -65,7 +66,22 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-      void resetDebug10() {
+    void _openChest() {
+      showModalBottomSheet(
+        context: context,
+        isDismissible: true,
+        enableDrag: false,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+        ),
+        builder: (c) => Padding(
+          padding: const EdgeInsets.all(16),
+          child: ChestWidget(),
+        ),
+      );
+    }
+  void resetDebug10() {
         setState(() {
           hammerfells = 50;
           ironOre = 10;
@@ -947,6 +963,29 @@ class _HomePageState extends State<HomePage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         ElevatedButton.icon(
+                          onPressed: () {
+                            // TODO: Implement Craft modal
+                          },
+                          icon: const Icon(Icons.handyman),
+                          label: const Text('Craft'),
+                          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                        ),
+                        const SizedBox(width: 16),
+                        ElevatedButton.icon(
+                          onPressed: _openFurnace,
+                          icon: const Icon(Icons.local_fire_department),
+                          label: const Text('Furnace'),
+                          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                        ),
+                        const SizedBox(width: 16),
+                        ElevatedButton.icon(
+                          onPressed: _openChest,
+                          icon: const Icon(Icons.inventory),
+                          label: const Text('Chest'),
+                          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                        ),
+                        const SizedBox(width: 16),
+                        ElevatedButton.icon(
                           onPressed: () async {
                             // Always update state after returning from MinePage
                             await Navigator.push(
@@ -1002,13 +1041,6 @@ class _HomePageState extends State<HomePage> {
                           },
                           icon: const Icon(Icons.construction),
                           label: const Text('Mine'),
-                          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
-                        ),
-                        const SizedBox(width: 16),
-                        ElevatedButton.icon(
-                          onPressed: _openFurnace,
-                          icon: const Icon(Icons.local_fire_department),
-                          label: const Text('Furnace'),
                           style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
                         ),
                         const SizedBox(width: 16),
