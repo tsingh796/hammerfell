@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:yaml/yaml.dart';
 import 'modals/furnace_modal.dart';
@@ -12,6 +13,25 @@ import 'utils/color_utils.dart';
 // import 'modals/forest_modal.dart';
 import 'pages/mine_page.dart';
 import 'pages/forest_page.dart';
+
+// --- Mine class for persistence and runtime ---
+class Mine {
+  final String oreType;
+  final Map<String, dynamic>? extra;
+  Mine({required this.oreType, this.extra});
+
+  factory Mine.fromJson(Map<String, dynamic> json) {
+    return Mine(
+      oreType: json['oreType'] as String,
+      extra: json['extra'] as Map<String, dynamic>?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'oreType': oreType,
+    if (extra != null) 'extra': extra,
+  };
+}
 
 // Which modal to show in the center column
 
@@ -72,7 +92,7 @@ class _HomePageState extends State<HomePage> {
   String _oreAsset(String oreType) => oreAsset(oreType);
   // Track if a mine has been entered and which mine
   bool hasEnteredMine = false;
-  dynamic currentMine; // Use dynamic to avoid import issues, or import the Mine model if available
+  Mine? currentMine;
   int hammerfells = 10;
   int ironOre = 0;
   int copperOre = 0;
@@ -131,6 +151,41 @@ class _HomePageState extends State<HomePage> {
       copperCoins = prefs.getInt('copperCoins') ?? 0;
       silverCoins = prefs.getInt('silverCoins') ?? 0;
       goldCoins = prefs.getInt('goldCoins') ?? 0;
+      // Load backpack from JSON string
+      final backpackString = prefs.getString('backpack');
+      if (backpackString != null) {
+        try {
+          final List<dynamic> decoded = jsonDecode(backpackString);
+          for (int i = 0; i < backpack.length; i++) {
+            backpack[i] = i < decoded.length && decoded[i] != null ? Map<String, dynamic>.from(decoded[i]) : null;
+          }
+        } catch (_) {
+          for (int i = 0; i < backpack.length; i++) {
+            backpack[i] = null;
+          }
+        }
+      } else {
+        for (int i = 0; i < backpack.length; i++) {
+          backpack[i] = null;
+        }
+      }
+      // Load last entered mine (as JSON object)
+      final lastMine = prefs.getString('lastMine');
+      if (lastMine != null && lastMine.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(lastMine);
+          if (decoded is Map<String, dynamic> && decoded['oreType'] != null) {
+            currentMine = Mine.fromJson(decoded);
+            hasEnteredMine = true;
+          } else {
+            currentMine = null;
+            hasEnteredMine = false;
+          }
+        } catch (_) {
+          currentMine = null;
+          hasEnteredMine = false;
+        }
+      }
     });
   }
 
@@ -169,6 +224,13 @@ class _HomePageState extends State<HomePage> {
     await prefs.setInt('copperCoins', copperCoins);
     await prefs.setInt('silverCoins', silverCoins);
     await prefs.setInt('goldCoins', goldCoins);
+    // Save backpack as JSON string
+    final encoded = backpack.map((slot) => slot == null ? null : Map<String, dynamic>.from(slot)).toList();
+    await prefs.setString('backpack', jsonEncode(encoded));
+    // Save last entered mine if any
+    if (hasEnteredMine && currentMine != null) {
+      await prefs.setString('lastMine', jsonEncode(currentMine!.toJson()));
+    }
   }
 
 
@@ -887,7 +949,7 @@ class _HomePageState extends State<HomePage> {
                                   onEnterMine: (mine) {
                                     setState(() {
                                       hasEnteredMine = true;
-                                      currentMine = mine;
+                                      currentMine = mine is Mine ? mine : Mine.fromJson(Map<String, dynamic>.from(mine));
                                     });
                                   },
                                   onSearchNewMine: () {

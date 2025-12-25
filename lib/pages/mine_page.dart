@@ -43,6 +43,16 @@ class MinePage extends StatefulWidget {
 }
 
 class _MinePageState extends State<MinePage> {
+      @override
+      void didUpdateWidget(covariant MinePage oldWidget) {
+        super.didUpdateWidget(oldWidget);
+        // If mine changes, reset _nextOre
+        if (widget.initialMine != oldWidget.initialMine) {
+          setState(() {
+            _nextOre = null;
+          });
+        }
+      }
     String? _nextOre;
     final Random _rng = Random();
     // Helper to get ore icon asset path
@@ -63,7 +73,6 @@ class _MinePageState extends State<MinePage> {
 
     // Cracking overlay asset for animation (2 steps)
     String _crackAsset(int step, String ore) {
-      // You can add your own assets for more steps or different ores
       if (step == 1) {
         return 'assets/images/crack1.svg';
       } else if (step == 2) {
@@ -74,18 +83,17 @@ class _MinePageState extends State<MinePage> {
 
     // Helper to pick next ore using weightedRandomChoice utility
     String _pickNextOre() {
-      final oreChances = widget.mineOreChances[_currentMine!.oreType];
-      if (oreChances == null || oreChances.isEmpty) return _currentMine!.oreType;
+      final oreType = widget.initialMine!.oreType;
+      final oreChances = widget.mineOreChances[oreType];
+      if (oreChances == null || oreChances.isEmpty) return oreType;
       final oreNames = oreChances.keys.toList();
       final weights = oreNames.map((k) => oreChances[k] ?? 0.0).toList();
-      return weightedRandomChoice(oreNames, weights, rng: _rng) ?? _currentMine!.oreType;
+      return weightedRandomChoice(oreNames, weights, rng: _rng) ?? oreType;
     }
-  dynamic _currentMine;
   bool _mining = false;
   int _crackStep = 0;
   bool _isPressed = false;
   String? _mineResult;
-  // Backpack is now passed from parent
 
   // Helper for readable text color (copied from main.dart)
 
@@ -104,9 +112,6 @@ class _MinePageState extends State<MinePage> {
         child: MineSearchModal(
           onEnterMine: (mine) {
             Navigator.of(context).pop();
-            setState(() {
-              _currentMine = mine;
-            });
             if (widget.onEnterMine != null) widget.onEnterMine!(mine);
           },
         ),
@@ -133,11 +138,8 @@ class _MinePageState extends State<MinePage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_currentMine == null && widget.initialMine != null) {
-      _currentMine = widget.initialMine;
-    }
     // Initialize _nextOre when entering a mine
-    if (_currentMine != null && _nextOre == null) {
+    if (widget.initialMine != null && _nextOre == null) {
       _nextOre = _pickNextOre();
     }
     return Scaffold(
@@ -146,12 +148,12 @@ class _MinePageState extends State<MinePage> {
         children: [
           // Main content area
           Center(
-            child: (_currentMine == null)
+            child: (widget.initialMine == null)
                 ? const Text('Search for a mine to begin!')
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Entered ${_currentMine!.oreType[0].toUpperCase()}${_currentMine!.oreType.substring(1)} Mine!'),
+                      Text('Entered ${widget.initialMine!.oreType[0].toUpperCase()}${widget.initialMine!.oreType.substring(1)} Mine!'),
                       const SizedBox(height: 20),
                       Center(
                         child: GestureDetector(
@@ -271,10 +273,12 @@ class _MinePageState extends State<MinePage> {
                       ElevatedButton(
                         onPressed: () {
                           setState(() {
-                            _currentMine = null;
                             _mineResult = null;
                             _nextOre = null;
                           });
+                          if (widget.onSearchNewMine != null) {
+                            widget.onSearchNewMine!();
+                          }
                         },
                         child: const Text('Leave Mine'),
                       ),
@@ -412,7 +416,6 @@ class _MinePageState extends State<MinePage> {
             child: ElevatedButton(
               onPressed: () {
                 setState(() {
-                  _currentMine = null;
                   _mineResult = null;
                 });
                 if (widget.onSearchNewMine != null) {
