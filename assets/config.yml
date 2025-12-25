@@ -1,3 +1,30 @@
+
+mines:
+  copper:
+    stone: 0.10
+    copper: 0.60
+    iron: 0.20
+    gold: 0.09
+    diamond: 0.01
+  iron:
+    stone: 0.15
+    copper: 0.10
+    iron: 0.55
+    gold: 0.15
+    diamond: 0.05
+  gold:
+    stone: 0.20
+    copper: 0.10
+    iron: 0.15
+    gold: 0.50
+    diamond: 0.05
+  diamond:
+    stone: 0.30
+    copper: 0.10
+    iron: 0.10
+    gold: 0.10
+    diamond: 0.40
+
 mining:
   iron:
     chance: 0.5

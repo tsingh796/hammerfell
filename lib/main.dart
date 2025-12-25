@@ -5,36 +5,18 @@ import 'dart:math';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'models/app_config.dart';
 import 'package:yaml/yaml.dart';
 import 'modals/furnace_modal.dart';
 import 'modals/mine_modal.dart';
-import 'modals/mine_search_modal.dart';
-import 'models/mine.dart';
-// import 'modals/forest_modal.dart';
-import 'widgets/ore_row.dart';
-import 'widgets/smelt_row.dart';
-import 'widgets/coin_icon.dart';
 import 'utils/color_utils.dart';
 import 'utils/animation_utils.dart';
+// import 'modals/forest_modal.dart';
 import 'pages/mine_page.dart';
 import 'pages/forest_page.dart';
 
 // Which modal to show in the center column
-String? _centerModal; // 'mine', 'furnace', or null
 
 // State for showing ore/ingot names on tap
-final Map<String, bool> _showOreName = {
-  'iron': false,
-  'copper': false,
-  'gold': false,
-  'diamond': false,
-};
-final Map<String, bool> _showIngotName = {
-  'iron': false,
-  'copper': false,
-  'gold': false,
-};
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -63,58 +45,45 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-    String? _lastEnteredMineOreType;
+  // Track if a mine has been entered and which mine
+  bool hasEnteredMine = false;
+  dynamic currentMine; // Use dynamic to avoid import issues, or import the Mine model if available
   int hammerfells = 10;
-  int copperCoins = 0;
-  int silverCoins = 0;
-  int goldCoins = 0;
-
-  // Ores
   int ironOre = 0;
   int copperOre = 0;
   int goldOre = 0;
   int diamond = 0;
-
-  // Ingots
   int ironIngot = 0;
   int copperIngot = 0;
   int goldIngot = 0;
-
-  // All mining and smelting costs are 1 hammerfell
-  static const int miningCost = 1;
-  static const int smeltIronCost = 1;
-  static const int smeltCopperCost = 1;
-  static const int smeltGoldCost = 1;
-
-  // Mining chances (0.0 - 1.0), defaults to always succeed
-  double ironMineChance = 1.0;
-  double copperMineChance = 1.0;
-  double goldMineChance = 1.0;
-  double diamondMineChance = 1.0;
-
+  int copperCoins = 0;
+  int silverCoins = 0;
+  int goldCoins = 0;
+  
+  // Mining chances
+  double ironMineChance = 0.5;
+  double copperMineChance = 0.5;
+  double goldMineChance = 0.3;
+  double diamondMineChance = 0.1;
+  
+  // Costs
+  int miningCost = 1;
+  int smeltIronCost = 3;
+  int smeltCopperCost = 3;
+  int smeltGoldCost = 5;
+  
+  // Animation state
+  final Map<String, double> _rowScale = {};
+  final Map<String, Color?> _rowOverlayColor = {};
+  
+  // Random number generator
   final Random _rng = Random();
-
-  // Key for Hammerfells button to anchor popup
+  
+  // Key for positioning popups
   final GlobalKey _hammerButtonKey = GlobalKey();
-
-  // Row animation state (for success/failure pulse)
-  final Map<String, double> _rowScale = {
-    'iron': 1.0,
-    'copper': 1.0,
-    'gold': 1.0,
-    'diamond': 1.0,
-  };
-  final Map<String, Color?> _rowOverlayColor = {
-    'iron': null,
-    'copper': null,
-    'gold': null,
-    'diamond': null,
-  };
-
-  Future<void> _pulseRow(String id, bool success) async {
-    await pulseRow(id, success, setState, _rowScale, _rowOverlayColor);
-  }
-
+  
+  // Mine ore chances configuration
+  Map<String, Map<String, double>> mineOreChances = {};
 
   @override
   void initState() {
@@ -134,7 +103,32 @@ class _HomePageState extends State<HomePage> {
       ironIngot = prefs.getInt('ironIngot') ?? 0;
       copperIngot = prefs.getInt('copperIngot') ?? 0;
       goldIngot = prefs.getInt('goldIngot') ?? 0;
+      copperCoins = prefs.getInt('copperCoins') ?? 0;
+      silverCoins = prefs.getInt('silverCoins') ?? 0;
+      goldCoins = prefs.getInt('goldCoins') ?? 0;
     });
+  }
+
+  Future<void> _loadConfig() async {
+    try {
+      final String yamlString = await rootBundle.loadString('assets/config/game_config.yaml');
+      final dynamic yamlData = loadYaml(yamlString);
+      if (yamlData != null && yamlData['mine_ore_chances'] != null) {
+        final Map<dynamic, dynamic> chances = yamlData['mine_ore_chances'] as Map<dynamic, dynamic>;
+        mineOreChances = chances.map((key, value) {
+          final Map<String, double> oreMap = {};
+          if (value is Map) {
+            value.forEach((oreKey, oreValue) {
+              oreMap[oreKey.toString()] = (oreValue as num).toDouble();
+            });
+          }
+          return MapEntry(key.toString(), oreMap);
+        });
+      }
+    } catch (e) {
+      // Config not found or error loading, use defaults
+      mineOreChances = {};
+    }
   }
 
   Future<void> _saveGame() async {
@@ -147,22 +141,47 @@ class _HomePageState extends State<HomePage> {
     await prefs.setInt('ironIngot', ironIngot);
     await prefs.setInt('copperIngot', copperIngot);
     await prefs.setInt('goldIngot', goldIngot);
+    await prefs.setInt('copperCoins', copperCoins);
+    await prefs.setInt('silverCoins', silverCoins);
+    await prefs.setInt('goldCoins', goldCoins);
   }
 
-  Future<void> _loadConfig() async {
-    try {
-      final configString = await rootBundle.loadString('assets/config.yml');
-      final config = loadYaml(configString);
-      final mining = config['mining'];
-      setState(() {
-        ironMineChance = (mining['iron']['chance'] ?? ironMineChance).toDouble();
-        copperMineChance = (mining['copper']['chance'] ?? copperMineChance).toDouble();
-        goldMineChance = (mining['gold']['chance'] ?? goldMineChance).toDouble();
-        diamondMineChance = (mining['diamond']['chance'] ?? diamondMineChance).toDouble();
-      });
-    } catch (e) {
-      debugPrint('Failed to load config.yml: $e');
+
+
+  void _pulseRow(String id, bool success) {
+    final color = success ? Colors.green.withOpacity(0.3) : Colors.red.withOpacity(0.3);
+    setState(() {
+      _rowScale[id] = 1.1;
+      _rowOverlayColor[id] = color;
+    });
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted) {
+        setState(() {
+          _rowScale[id] = 1.0;
+          _rowOverlayColor[id] = null;
+        });
+      }
+    });
+  }
+
+  // Picks an ore to mine based on the mine type and config chances
+  String pickOreForMine(Map<String, Map<String, double>> chances, Random rng, String mineType) {
+    final oreChances = chances[mineType];
+    if (oreChances == null || oreChances.isEmpty) {
+      return mineType; // Default to the mine type itself
     }
+    
+    final roll = rng.nextDouble();
+    double cumulative = 0.0;
+    
+    for (final entry in oreChances.entries) {
+      cumulative += entry.value;
+      if (roll <= cumulative) {
+        return entry.key;
+      }
+    }
+    
+    return oreChances.keys.first; // Fallback to first ore
   }
 
   Future<bool> mineIronOre() async {
@@ -250,13 +269,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  void addHammerfellsAmount(int amount) {
-    setState(() {
-      hammerfells += amount;
-      _saveGame();
-    });
-  }
-
   void resetGame() {
     setState(() {
       hammerfells = 0;
@@ -267,6 +279,9 @@ class _HomePageState extends State<HomePage> {
       ironIngot = 0;
       copperIngot = 0;
       goldIngot = 0;
+      copperCoins = 0;
+      silverCoins = 0;
+      goldCoins = 0;
       _saveGame();
     });
   }
@@ -292,7 +307,7 @@ class _HomePageState extends State<HomePage> {
             children: [
               SvgPicture.asset(assetPath, width: 20, height: 20),
               const SizedBox(width: 10),
-              Text('$label: $count', style: TextStyle(color: _readableTextColor(color), fontWeight: FontWeight.w600)),
+              Text('$label: $count', style: TextStyle(color: readableTextColor(color), fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -302,6 +317,13 @@ class _HomePageState extends State<HomePage> {
 
   Color _readableTextColor(Color background) {
     return readableTextColor(background);
+  }
+
+  void addHammerfellsAmount(int amount) {
+    setState(() {
+      hammerfells += amount;
+      _saveGame();
+    });
   }
 
   void _showAddHammerfellsPopup() {
@@ -382,25 +404,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _showResultSnackBar(bool success, String message) {
-    final color = success ? Colors.green[700] : Colors.red[700];
-    final icon = success ? Icons.check_circle : Icons.cancel;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(icon, color: Colors.white),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(milliseconds: 900),
-      ),
-    );
-  }
-
   void _openFurnace() {
     showModalBottomSheet(
       context: context,
@@ -458,76 +461,13 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _openOreMine(String oreType) {
-    // Use the general mine modal for now
-    _openMine();
-  }
 
-  Widget _oreIconValue(String id, String name, int value, Color color, String asset) {
-    return GestureDetector(
-      onTap: () => setState(() => _showOreName[id] = !_showOreName[id]!),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Container(
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SvgPicture.asset(asset, width: 24, height: 24),
-              const SizedBox(width: 8),
-              Text('$value', style: TextStyle(color: readableTextColor(color), fontWeight: FontWeight.bold, fontSize: 16)),
-              if (_showOreName[id]!) ...[
-                const SizedBox(width: 8),
-                Text(name, style: TextStyle(color: readableTextColor(color), fontWeight: FontWeight.w600)),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
-  Widget _ingotIconValue(String id, String name, int value, Color color, String asset) {
-    return GestureDetector(
-      onTap: () => setState(() => _showIngotName[id] = !_showIngotName[id]!),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Container(
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SvgPicture.asset(asset, width: 24, height: 24),
-              const SizedBox(width: 8),
-              Text('$value', style: TextStyle(color: readableTextColor(color), fontWeight: FontWeight.bold, fontSize: 16)),
-              if (_showIngotName[id]!) ...[
-                const SizedBox(width: 8),
-                Text(name, style: TextStyle(color: readableTextColor(color), fontWeight: FontWeight.w600)),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     // Card colors for ores/ingots
-    final Color ironColor = const Color(0xFFB0BEC5); // bluish gray
-    final Color copperColor = const Color(0xFFB87333); // copper
-    final Color goldColor = const Color(0xFFFFD700); // gold
-    final Color diamondColor = const Color(0xFF81D4FA); // light blue
-    final Color silverColor = const Color(0xFFC0C0C0); // silver
-    Widget coinIcon(String asset) => SvgPicture.asset(asset, width: 20, height: 20);
+
     return Scaffold(
       drawer: Drawer(
         child: SafeArea(
@@ -633,22 +573,59 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ],
               ),
-              // Main content: 3 columns (ores | modal | ingots)
+              // Main content: Minecraft-style grids for ores and ingots
               Expanded(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Left: Ores (icon + value, tap to show name)
+                    // Left: Ores grid (5 rows x 1 column)
                     SizedBox(
-                      width: 56,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _oreIconValue('iron', 'Iron Ore', ironOre, ironColor, 'assets/images/iron_ore.svg'),
-                          _oreIconValue('copper', 'Copper Ore', copperOre, copperColor, 'assets/images/copper_ore.svg'),
-                          _oreIconValue('gold', 'Gold Ore', goldOre, goldColor, 'assets/images/gold_ore.svg'),
-                          _oreIconValue('diamond', 'Diamond', diamond, diamondColor, 'assets/images/diamond.svg'),
-                        ],
+                      width: 72,
+                      child: GridView.builder(
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 1,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 0,
+                          childAspectRatio: 1,
+                        ),
+                        itemCount: 5,
+                        itemBuilder: (context, index) {
+                          // Order: iron, copper, gold, diamond, (empty)
+                          final ores = [
+                            {'name': 'Iron Ore', 'count': ironOre, 'asset': 'assets/images/iron_ore.svg'},
+                            {'name': 'Copper Ore', 'count': copperOre, 'asset': 'assets/images/copper_ore.svg'},
+                            {'name': 'Gold Ore', 'count': goldOre, 'asset': 'assets/images/gold_ore.svg'},
+                            {'name': 'Diamond', 'count': diamond, 'asset': 'assets/images/diamond.svg'},
+                          ];
+                          if (index < ores.length) {
+                            final ore = ores[index];
+                            return Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey, width: 2),
+                                color: Colors.black.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              alignment: Alignment.center,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SvgPicture.asset(ore['asset'] as String, width: 32, height: 32),
+                                  const SizedBox(height: 4),
+                                  Text('${ore['count']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            );
+                          } else {
+                            return Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey, width: 2),
+                                color: Colors.black.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            );
+                          }
+                        },
                       ),
                     ),
                     // Center: Modal area (just a placeholder now)
@@ -667,16 +644,53 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ),
-                    // Right: Ingots (icon + value, tap to show name)
+                    // Right: Ingots grid (5 rows x 1 column)
                     SizedBox(
-                      width: 56,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _ingotIconValue('iron', 'Iron Ingot', ironIngot, ironColor, 'assets/images/iron_ingot.svg'),
-                          _ingotIconValue('copper', 'Copper Ingot', copperIngot, copperColor, 'assets/images/copper_ingot.svg'),
-                          _ingotIconValue('gold', 'Gold Ingot', goldIngot, goldColor, 'assets/images/gold_ingot.svg'),
-                        ],
+                      width: 72,
+                      child: GridView.builder(
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 1,
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 0,
+                          childAspectRatio: 1,
+                        ),
+                        itemCount: 5,
+                        itemBuilder: (context, index) {
+                          // Order: iron, copper, gold, (empty, empty)
+                          final ingots = [
+                            {'name': 'Iron Ingot', 'count': ironIngot, 'asset': 'assets/images/iron_ingot.svg'},
+                            {'name': 'Copper Ingot', 'count': copperIngot, 'asset': 'assets/images/copper_ingot.svg'},
+                            {'name': 'Gold Ingot', 'count': goldIngot, 'asset': 'assets/images/gold_ingot.svg'},
+                          ];
+                          if (index < ingots.length) {
+                            final ingot = ingots[index];
+                            return Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey, width: 2),
+                                color: Colors.black.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              alignment: Alignment.center,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SvgPicture.asset(ingot['asset'] as String, width: 32, height: 32),
+                                  const SizedBox(height: 4),
+                                  Text('${ingot['count']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            );
+                          } else {
+                            return Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey, width: 2),
+                                color: Colors.black.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            );
+                          }
+                        },
                       ),
                     ),
                   ],
@@ -694,7 +708,56 @@ class _HomePageState extends State<HomePage> {
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => const MinePage()),
+                            MaterialPageRoute(
+                              builder: (context) => MinePage(
+                                hammerfells: hammerfells,
+                                miningChances: {
+                                  'iron': ironMineChance,
+                                  'copper': copperMineChance,
+                                  'gold': goldMineChance,
+                                  'diamond': diamondMineChance,
+                                },
+                                onMine: (ore) async {
+                                  bool success = false;
+                                  if (ore == 'iron') {
+                                    success = await mineIronOre();
+                                  } else if (ore == 'copper') {
+                                    success = await mineCopperOre();
+                                  } else if (ore == 'gold') {
+                                    success = await mineGoldOre();
+                                  } else if (ore == 'diamond') {
+                                    success = await mineDiamond();
+                                  } else if (ore == 'stone') {
+                                    if (hammerfells >= miningCost) {
+                                      setState(() {
+                                        hammerfells -= miningCost;
+                                        _saveGame();
+                                      });
+                                      success = true;
+                                    }
+                                  }
+                                  _pulseRow(ore, success);
+                                  return success;
+                                },
+                                onOpenFurnace: _openFurnace,
+                                mineOreChances: mineOreChances,
+                                pickOreForMine: (mineType) => pickOreForMine(mineOreChances, _rng, mineType),
+                                hasEnteredMine: hasEnteredMine && currentMine != null,
+                                initialMine: currentMine,
+                                onEnterMine: (mine) {
+                                  setState(() {
+                                    hasEnteredMine = true;
+                                    currentMine = mine;
+                                  });
+                                },
+                                onSearchNewMine: () {
+                                  setState(() {
+                                    hasEnteredMine = false;
+                                    currentMine = null;
+                                  });
+                                },
+                              ),
+                            ),
                           );
                         },
                         icon: const Icon(Icons.construction),
