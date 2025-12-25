@@ -17,6 +17,8 @@ import 'widgets/smelt_row.dart';
 import 'widgets/coin_icon.dart';
 import 'utils/color_utils.dart';
 import 'utils/animation_utils.dart';
+import 'pages/mine_page.dart';
+import 'pages/forest_page.dart';
 
 // Which modal to show in the center column
 String? _centerModal; // 'mine', 'furnace', or null
@@ -414,8 +416,9 @@ class _HomePageState extends State<HomePage> {
         copperOre: copperOre,
         goldOre: goldOre,
         onSmelt: (ore) {
-          if (ore == 'iron') smeltIron();
-          else if (ore == 'copper') smeltCopper();
+          if (ore == 'iron') {
+            smeltIron();
+          } else if (ore == 'copper') smeltCopper();
           else if (ore == 'gold') smeltGold();
         },
         onClose: () => Navigator.of(c).pop(),
@@ -442,8 +445,9 @@ class _HomePageState extends State<HomePage> {
         },
         onMine: (ore) async {
           bool success = false;
-          if (ore == 'iron') success = await mineIronOre();
-          else if (ore == 'copper') success = await mineCopperOre();
+          if (ore == 'iron') {
+            success = await mineIronOre();
+          } else if (ore == 'copper') success = await mineCopperOre();
           else if (ore == 'gold') success = await mineGoldOre();
           else if (ore == 'diamond') success = await mineDiamond();
           _pulseRow(ore, success);
@@ -688,88 +692,10 @@ class _HomePageState extends State<HomePage> {
                     children: [
                       ElevatedButton.icon(
                         onPressed: () {
-                          if (_lastEnteredMineOreType != null) {
-                            showDialog(
-                              context: context,
-                              barrierDismissible: true,
-                              builder: (context) {
-                                final oreName = _lastEnteredMineOreType![0].toUpperCase() + _lastEnteredMineOreType!.substring(1);
-                                return AlertDialog(
-                                  title: const Text('Enter Mine'),
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      ElevatedButton(
-                                        onPressed: () {
-                                          Navigator.of(context).pop();
-                                          _openOreMine(_lastEnteredMineOreType!);
-                                        },
-                                        child: Text('Enter $oreName Mine'),
-                                        style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      OutlinedButton(
-                                        onPressed: () {
-                                          Navigator.of(context).pop();
-                                          showDialog(
-                                            context: context,
-                                            barrierDismissible: true,
-                                            builder: (context) => Center(
-                                              child: FractionallySizedBox(
-                                                widthFactor: 0.8,
-                                                heightFactor: 0.7,
-                                                child: Material(
-                                                  color: Theme.of(context).dialogBackgroundColor,
-                                                  borderRadius: BorderRadius.circular(16),
-                                                  clipBehavior: Clip.antiAlias,
-                                                  child: MineSearchModal(
-                                                    onEnterMine: (mine) {
-                                                      Navigator.of(context).pop();
-                                                      _openOreMine(mine.oreType);
-                                                      setState(() {
-                                                        _lastEnteredMineOreType = mine.oreType;
-                                                      });
-                                                    },
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                        child: const Text('Search New Mine'),
-                                        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            );
-                          } else {
-                            showDialog(
-                              context: context,
-                              barrierDismissible: true,
-                              builder: (context) => Center(
-                                child: FractionallySizedBox(
-                                  widthFactor: 0.8,
-                                  heightFactor: 0.7,
-                                  child: Material(
-                                    color: Theme.of(context).dialogBackgroundColor,
-                                    borderRadius: BorderRadius.circular(16),
-                                    clipBehavior: Clip.antiAlias,
-                                    child: MineSearchModal(
-                                      onEnterMine: (mine) {
-                                        Navigator.of(context).pop();
-                                        _openOreMine(mine.oreType);
-                                        setState(() {
-                                          _lastEnteredMineOreType = mine.oreType;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const MinePage()),
+                          );
                         },
                         icon: const Icon(Icons.construction),
                         label: const Text('Mine'),
@@ -785,7 +711,10 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(width: 16),
                       ElevatedButton.icon(
                         onPressed: () {
-                          // Forest functionality placeholder
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const ForestPage()),
+                          );
                         },
                         icon: const Icon(Icons.park),
                         label: const Text('Forest'),
