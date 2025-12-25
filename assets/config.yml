@@ -1,5 +1,11 @@
-
 mines:
+  coal:
+    stone: 0.1
+    coal: 0.739
+    copper: 0.1
+    iron: 0.05
+    gold: 0.01
+    diamond: 0.001
   copper:
     stone: 0.10
     copper: 0.10
@@ -26,10 +32,12 @@ mines:
     diamond: 0.40
 
 mining:
-  iron:
-    chance: 0.5
+  coal:
+    chance: 0.9
   copper:
     chance: 0.75
+  iron:
+    chance: 0.5
   gold:
     chance: 0.35
   diamond:

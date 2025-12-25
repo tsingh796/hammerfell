@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/mine.dart';
 import '../utils/random_utils.dart';
 
@@ -12,13 +13,18 @@ class MineSearchModal extends StatefulWidget {
 }
 
 class _MineSearchModalState extends State<MineSearchModal> {
+    Future<void> _persistMine(String oreType) async {
+      final mineJson = '{"oreType": "$oreType"}';
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('minepage_lastMine', mineJson);
+    }
   bool _searching = true;
   String? _foundOre;
   late Timer _timer;
   late int _secondsRemaining;
   late double _progress;
 
-  static const int searchDuration = 8; // seconds
+  static const int searchDuration = 2; // seconds
   // Remove hardcoded ores/weights, will use config if available
 
   @override
@@ -102,7 +108,10 @@ class _MineSearchModalState extends State<MineSearchModal> {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               ElevatedButton(
-                onPressed: () => widget.onEnterMine(Mine(_foundOre!)),
+                onPressed: () async {
+                  await _persistMine(_foundOre!);
+                  widget.onEnterMine(Mine(_foundOre!));
+                },
                 child: const Text('Enter Mine'),
               ),
               OutlinedButton(

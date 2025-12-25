@@ -1,12 +1,22 @@
 
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../modals/mine_search_modal.dart';
 
 import '../utils/random_utils.dart';
+import '../utils/backpack_manager.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+class Mine {
+  final String oreType;
+  
+  Mine(this.oreType);
+  
+  Map<String, dynamic> toJson() => {'oreType': oreType};
+}
 
 class MinePage extends StatefulWidget {
   final int hammerfells;
@@ -15,12 +25,8 @@ class MinePage extends StatefulWidget {
   final VoidCallback? onOpenFurnace;
   final Map<String, Map<String, double>> mineOreChances;
   final String Function(String) pickOreForMine;
-  final bool hasEnteredMine;
-  final dynamic initialMine;
-  final void Function(dynamic)? onEnterMine;
-  final VoidCallback? onSearchNewMine;
-  final List<Map<String, dynamic>?> backpack;
-  final void Function(String) addToBackpack;
+  // Remove hasEnteredMine, initialMine, onEnterMine, onSearchNewMine from constructor
+  // Backpack and addToBackpack removed; MinePage manages its own backpack
 
   const MinePage({
     Key? key,
@@ -29,13 +35,7 @@ class MinePage extends StatefulWidget {
     required this.onMine,
     required this.mineOreChances,
     required this.pickOreForMine,
-    required this.backpack,
-    required this.addToBackpack,
     this.onOpenFurnace,
-    this.hasEnteredMine = false,
-    this.initialMine,
-    this.onEnterMine,
-    this.onSearchNewMine,
   }) : super(key: key);
 
   @override
@@ -43,78 +43,155 @@ class MinePage extends StatefulWidget {
 }
 
 class _MinePageState extends State<MinePage> {
-      @override
-      void didUpdateWidget(covariant MinePage oldWidget) {
-        super.didUpdateWidget(oldWidget);
-        // If mine changes, reset _nextOre
-        if (widget.initialMine != oldWidget.initialMine) {
-          setState(() {
-            _nextOre = null;
-          });
-        }
-      }
-    String? _nextOre;
-    final Random _rng = Random();
-    // Helper to get ore icon asset path
-    String _oreAsset(String ore) {
-      switch (ore) {
-        case 'iron':
-          return 'assets/images/iron_ore.svg';
-        case 'copper':
-          return 'assets/images/copper_ore.svg';
-        case 'gold':
-          return 'assets/images/gold_ore.svg';
-        case 'diamond':
-          return 'assets/images/diamond.svg';
-        default:
-          return 'assets/images/stone.svg';
-      }
-    }
-
-    // Cracking overlay asset for animation (2 steps)
-    String _crackAsset(int step, String ore) {
-      if (step == 1) {
-        return 'assets/images/crack1.svg';
-      } else if (step == 2) {
-        return 'assets/images/crack2.svg';
-      }
-      return '';
-    }
-
-    // Helper to pick next ore using weightedRandomChoice utility
-    String _pickNextOre() {
-      final oreType = widget.initialMine!.oreType;
-      final oreChances = widget.mineOreChances[oreType];
-      if (oreChances == null || oreChances.isEmpty) return oreType;
-      final oreNames = oreChances.keys.toList();
-      final weights = oreNames.map((k) => oreChances[k] ?? 0.0).toList();
-      return weightedRandomChoice(oreNames, weights, rng: _rng) ?? oreType;
-    }
+  // Use global backpack singleton
+  String? _nextOre;
+  final Random _rng = Random();
+  bool _hasEnteredMine = false;
+  dynamic _currentMine;
   bool _mining = false;
-  int _crackStep = 0;
   bool _isPressed = false;
+  int _crackStep = 0;
   String? _mineResult;
 
-  // Helper for readable text color (copied from main.dart)
+  @override
+  void initState() {
+    super.initState();
+    _restoreMineState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _restoreMineState();
+  }
+
+  Future<void> _restoreMineState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastMine = prefs.getString('minepage_lastMine');
+    if (lastMine != null && lastMine.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(lastMine);
+        setState(() {
+          _hasEnteredMine = true;
+          _currentMine = decoded is Map<String, dynamic> && decoded.containsKey('oreType')
+              ? Mine(decoded['oreType'])
+              : null;
+        });
+      } catch (_) {
+        setState(() {
+          _hasEnteredMine = false;
+          _currentMine = null;
+        });
+      }
+    } else {
+      setState(() {
+        _hasEnteredMine = false;
+        _currentMine = null;
+      });
+    }
+    await BackpackManager().load();
+  }
+
+  Future<void> _loadMineState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastMine = prefs.getString('minepage_lastMine');
+    if (lastMine != null && lastMine.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(lastMine);
+        setState(() {
+          _hasEnteredMine = true;
+          _currentMine = decoded is Map<String, dynamic> && decoded.containsKey('oreType')
+              ? Mine(decoded['oreType'])
+              : null;
+        });
+      } catch (_) {
+        setState(() {
+          _hasEnteredMine = false;
+          _currentMine = null;
+        });
+      }
+    } else {
+      setState(() {
+        _hasEnteredMine = false;
+        _currentMine = null;
+      });
+    }
+    // Load global backpack
+    await BackpackManager().load();
+  }
+
+  Future<void> _saveMineState() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Save mine
+    if (_hasEnteredMine && _currentMine != null) {
+      await prefs.setString('minepage_lastMine', jsonEncode(_currentMine));
+    } else {
+      await prefs.remove('minepage_lastMine');
+    }
+    // Save global backpack
+    await BackpackManager().save();
+  }
+
+  // Helper to get ore icon asset path
+  String _oreAsset(String ore) {
+    switch (ore) {
+      case 'iron':
+        return 'assets/images/iron_ore.svg';
+      case 'copper':
+        return 'assets/images/copper_ore.svg';
+      case 'gold':
+        return 'assets/images/gold_ore.svg';
+      case 'diamond':
+        return 'assets/images/diamond.svg';
+      default:
+        return 'assets/images/stone.svg';
+    }
+  }
+
+  // Cracking overlay asset for animation (2 steps)
+  String _crackAsset(int step, String ore) {
+    if (step == 1) {
+      return 'assets/images/crack1.svg';
+    } else if (step == 2) {
+      return 'assets/images/crack2.svg';
+    }
+    return '';
+  }
+
+  // Helper to pick next ore using weightedRandomChoice utility
+  String _pickNextOre() {
+    final oreType = _currentMine.oreType;
+    final oreChances = widget.mineOreChances[oreType];
+    if (oreChances == null || oreChances.isEmpty) return oreType;
+    final oreNames = oreChances.keys.toList();
+    final weights = oreNames.map((k) => oreChances[k] ?? 0.0).toList();
+    return weightedRandomChoice(oreNames, weights, rng: _rng) ?? oreType;
+  }
+
+  void _addToBackpack(String oreType) {
+    BackpackManager().addItem(oreType);
+    setState(() {});
+  }
 
   void _searchMine() {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).dialogBackgroundColor,
+      isDismissible: true,
+      enableDrag: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
       ),
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: MineSearchModal(
-          onEnterMine: (mine) {
-            Navigator.of(context).pop();
-            if (widget.onEnterMine != null) widget.onEnterMine!(mine);
-          },
-        ),
+      builder: (c) => MineSearchModal(
+        onEnterMine: (mine) {
+          Navigator.of(c).pop();
+          setState(() {
+            _hasEnteredMine = true;
+            _currentMine = mine;
+            _nextOre = null;
+          });
+          _saveMineState();
+        },
       ),
     );
   }
@@ -139,21 +216,22 @@ class _MinePageState extends State<MinePage> {
   @override
   Widget build(BuildContext context) {
     // Initialize _nextOre when entering a mine
-    if (widget.initialMine != null && _nextOre == null) {
+    if (_hasEnteredMine && _currentMine != null && _nextOre == null) {
       _nextOre = _pickNextOre();
     }
+    final bool showMiningUI = (_hasEnteredMine && _currentMine != null);
     return Scaffold(
       appBar: AppBar(title: const Text('Mine')),
       body: Stack(
         children: [
           // Main content area
           Center(
-            child: (widget.initialMine == null)
+            child: (!showMiningUI)
                 ? const Text('Search for a mine to begin!')
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text('Entered ${widget.initialMine!.oreType[0].toUpperCase()}${widget.initialMine!.oreType.substring(1)} Mine!'),
+                      Text('Entered ${_currentMine.oreType[0].toUpperCase()}${_currentMine.oreType.substring(1)} Mine!'),
                       const SizedBox(height: 20),
                       Center(
                         child: GestureDetector(
@@ -181,10 +259,11 @@ class _MinePageState extends State<MinePage> {
                                     _crackStep = 0;
                                     _isPressed = false;
                                     _mineResult = 'Mined $oreType!';
-                                    widget.addToBackpack(oreType);
+                                    _addToBackpack(oreType);
                                     // Pick next ore for next mining
                                     _nextOre = _pickNextOre();
                                   });
+                                  _saveMineState();
                                 },
                           onLongPressEnd: (_mining || _nextOre == null)
                               ? null
@@ -275,10 +354,10 @@ class _MinePageState extends State<MinePage> {
                           setState(() {
                             _mineResult = null;
                             _nextOre = null;
+                            _hasEnteredMine = false;
+                            _currentMine = null;
                           });
-                          if (widget.onSearchNewMine != null) {
-                            widget.onSearchNewMine!();
-                          }
+                          _saveMineState();
                         },
                         child: const Text('Leave Mine'),
                       ),
@@ -307,7 +386,7 @@ class _MinePageState extends State<MinePage> {
                                   ),
                                   itemCount: 5,
                                   itemBuilder: (context, index) {
-                                    final slot = widget.backpack[index];
+                                    final slot = BackpackManager().backpack[index];
                                     return DragTarget<Map<String, dynamic>>(
                                       builder: (context, candidateData, rejectedData) {
                                         return slot != null
@@ -378,24 +457,8 @@ class _MinePageState extends State<MinePage> {
                                       onAccept: (data) {
                                         setState(() {
                                           int from = data['from'] as int;
-                                          int movingCount = data['count'] as int;
-                                          String movingType = data['type'] as String;
-                                          if (slot == null) {
-                                            // Move all
-                                            widget.backpack[index] = {'type': movingType, 'count': movingCount};
-                                            widget.backpack[from] = null;
-                                          } else if (slot['type'] == movingType) {
-                                            int available = 64 - (slot['count'] as int);
-                                            if (available >= movingCount) {
-                                              // All fits
-                                              slot['count'] = (slot['count'] as int) + movingCount;
-                                              widget.backpack[from] = null;
-                                            } else if (available > 0) {
-                                              // Partial fit
-                                              slot['count'] = 64;
-                                              widget.backpack[from]!['count'] = movingCount - available;
-                                            } // else: shouldn't happen due to onWillAccept
-                                          }
+                                          int to = index;
+                                          BackpackManager().moveItem(from, to);
                                         });
                                       },
                                     );
@@ -418,9 +481,6 @@ class _MinePageState extends State<MinePage> {
                 setState(() {
                   _mineResult = null;
                 });
-                if (widget.onSearchNewMine != null) {
-                  widget.onSearchNewMine!();
-                }
                 _searchMine();
               },
               style: ElevatedButton.styleFrom(

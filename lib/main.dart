@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/foundation.dart';
+import 'utils/backpack_manager.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:yaml/yaml.dart';
@@ -65,7 +66,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   // Backpack inventory: Each slot is {'type': oreType, 'count': int}
-  final List<Map<String, dynamic>?> backpack = List.filled(5, null, growable: false);
+  // Use global backpack singleton
 
   // Public ore asset helper for use in backpack grid
   static String oreAsset(String oreType) {
@@ -83,6 +84,8 @@ class _HomePageState extends State<HomePage> {
         return 'assets/images/diamond.svg';
       case 'stone':
         return 'assets/images/stone.svg';
+      case 'coal':
+        return 'assets/images/coal.svg';
       default:
         return 'assets/images/unknown_ore.svg';
     }
@@ -98,6 +101,8 @@ class _HomePageState extends State<HomePage> {
   int copperOre = 0;
   int goldOre = 0;
   int diamond = 0;
+  int coal = 0;
+  int stone = 0;
   int ironIngot = 0;
   int copperIngot = 0;
   int goldIngot = 0;
@@ -133,40 +138,44 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _loadGame();
     _loadConfig();
-  }
-
-  Future<void> _loadGame() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      hammerfells = prefs.getInt('hammerfells') ?? 10;
-      ironOre = prefs.getInt('ironOre') ?? 0;
-      copperOre = prefs.getInt('copperOre') ?? 0;
-      goldOre = prefs.getInt('goldOre') ?? 0;
-      diamond = prefs.getInt('diamond') ?? 0;
-      ironIngot = prefs.getInt('ironIngot') ?? 0;
-      copperIngot = prefs.getInt('copperIngot') ?? 0;
-      goldIngot = prefs.getInt('goldIngot') ?? 0;
-      copperCoins = prefs.getInt('copperCoins') ?? 0;
-      silverCoins = prefs.getInt('silverCoins') ?? 0;
-      goldCoins = prefs.getInt('goldCoins') ?? 0;
-      // Load backpack from JSON string
-      final backpackString = prefs.getString('backpack');
-      if (backpackString != null) {
+    BackpackManager().load();
+    SharedPreferences.getInstance().then((prefs) {
+      setState(() {
+        hammerfells = prefs.getInt('hammerfells') ?? 10;
+        ironOre = prefs.getInt('ironOre') ?? 0;
+        copperOre = prefs.getInt('copperOre') ?? 0;
+        goldOre = prefs.getInt('goldOre') ?? 0;
+        diamond = prefs.getInt('diamond') ?? 0;
+        coal = prefs.getInt('coal') ?? 0;
+        stone = prefs.getInt('stone') ?? 0;
+        ironIngot = prefs.getInt('ironIngot') ?? 0;
+        copperIngot = prefs.getInt('copperIngot') ?? 0;
+        goldIngot = prefs.getInt('goldIngot') ?? 0;
+        copperCoins = prefs.getInt('copperCoins') ?? 0;
+        silverCoins = prefs.getInt('silverCoins') ?? 0;
+        goldCoins = prefs.getInt('goldCoins') ?? 0;
+      });
+      // Load backpack
+      final backpackStr = prefs.getString('backpack');
+      if (backpackStr != null && backpackStr.isNotEmpty) {
         try {
-          final List<dynamic> decoded = jsonDecode(backpackString);
-          for (int i = 0; i < backpack.length; i++) {
-            backpack[i] = i < decoded.length && decoded[i] != null ? Map<String, dynamic>.from(decoded[i]) : null;
+          final decoded = jsonDecode(backpackStr) as List;
+          for (int i = 0; i < BackpackManager().backpack.length && i < decoded.length; i++) {
+            if (decoded[i] != null) {
+              BackpackManager().backpack[i] = Map<String, dynamic>.from(decoded[i] as Map);
+            } else {
+              BackpackManager().backpack[i] = null;
+            }
           }
         } catch (_) {
-          for (int i = 0; i < backpack.length; i++) {
-            backpack[i] = null;
+          for (int i = 0; i < BackpackManager().backpack.length; i++) {
+            BackpackManager().backpack[i] = null;
           }
         }
       } else {
-        for (int i = 0; i < backpack.length; i++) {
-          backpack[i] = null;
+        for (int i = 0; i < BackpackManager().backpack.length; i++) {
+          BackpackManager().backpack[i] = null;
         }
       }
       // Load last entered mine (as JSON object)
@@ -218,6 +227,8 @@ class _HomePageState extends State<HomePage> {
     await prefs.setInt('copperOre', copperOre);
     await prefs.setInt('goldOre', goldOre);
     await prefs.setInt('diamond', diamond);
+    await prefs.setInt('coal', coal);
+    await prefs.setInt('stone', stone);
     await prefs.setInt('ironIngot', ironIngot);
     await prefs.setInt('copperIngot', copperIngot);
     await prefs.setInt('goldIngot', goldIngot);
@@ -225,7 +236,7 @@ class _HomePageState extends State<HomePage> {
     await prefs.setInt('silverCoins', silverCoins);
     await prefs.setInt('goldCoins', goldCoins);
     // Save backpack as JSON string
-    final encoded = backpack.map((slot) => slot == null ? null : Map<String, dynamic>.from(slot)).toList();
+    final encoded = BackpackManager().backpack.map((slot) => slot == null ? null : Map<String, dynamic>.from(slot)).toList();
     await prefs.setString('backpack', jsonEncode(encoded));
     // Save last entered mine if any
     if (hasEnteredMine && currentMine != null) {
@@ -375,6 +386,24 @@ class _HomePageState extends State<HomePage> {
 
   Widget coinIcon(String asset) => SvgPicture.asset(asset, width: 20, height: 20);
 
+  Widget _buildCoinRow() {
+    return Row(
+      children: [
+        coinIcon('assets/images/copper_coin.svg'),
+        const SizedBox(width: 4),
+        Text('$copperCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(width: 12),
+        coinIcon('assets/images/silver_coin.svg'),
+        const SizedBox(width: 4),
+        Text('$silverCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(width: 12),
+        coinIcon('assets/images/gold_coin.svg'),
+        const SizedBox(width: 4),
+        Text('$goldCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
   Widget oreRow(String id, String label, int count, int cost, Color color, String assetPath) {
     final scale = _rowScale[id] ?? 1.0;
     final overlayColor = _rowOverlayColor[id];
@@ -519,24 +548,12 @@ class _HomePageState extends State<HomePage> {
 
   // Helper to add ore to backpack
   void addToBackpack(String oreType) {
-    bool added = false;
-    for (var slot in backpack) {
-      if (slot != null && slot['type'] == oreType && (slot['count'] as int) < 64) {
-        slot['count'] = (slot['count'] as int) + 1;
-        added = true;
-        break;
-      }
-    }
-    if (!added) {
-      for (int i = 0; i < backpack.length; i++) {
-        if (backpack[i] == null) {
-          backpack[i] = {'type': oreType, 'count': 1};
-          added = true;
-          break;
-        }
-      }
-    }
-    setState(() {});
+    BackpackManager().addItem(oreType);
+    setState(() {
+      // Also update main counters for coal and stone
+      if (oreType == 'coal') coal++;
+      if (oreType == 'stone') stone++;
+    });
   }
 
   @override
@@ -796,7 +813,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                           itemCount: 5,
                           itemBuilder: (context, index) {
-                            final slot = backpack[index];
+                            final slot = BackpackManager().backpack[index];
                             return DragTarget<Map<String, dynamic>>(
                               builder: (context, candidateData, rejectedData) {
                                 return slot != null
@@ -858,33 +875,14 @@ class _HomePageState extends State<HomePage> {
                                       );
                               },
                               onWillAccept: (data) {
-                                if (data == null) return false;
-                                // Accept if empty or same type and not full
-                                if (slot == null) return true;
-                                if (slot['type'] == data['type'] && (slot['count'] as int) < 64) return true;
-                                return false;
+                                // Accept any item for any slot
+                                return data != null;
                               },
                               onAccept: (data) {
                                 setState(() {
                                   int from = data['from'] as int;
-                                  int movingCount = data['count'] as int;
-                                  String movingType = data['type'] as String;
-                                  if (slot == null) {
-                                    // Move all
-                                    backpack[index] = {'type': movingType, 'count': movingCount};
-                                    backpack[from] = null;
-                                  } else if (slot['type'] == movingType) {
-                                    int available = 64 - (slot['count'] as int);
-                                    if (available >= movingCount) {
-                                      // All fits
-                                      slot['count'] = (slot['count'] as int) + movingCount;
-                                      backpack[from] = null;
-                                    } else if (available > 0) {
-                                      // Partial fit
-                                      slot['count'] = 64;
-                                      backpack[from]!['count'] = movingCount - available;
-                                    } // else: shouldn't happen due to onWillAccept
-                                  }
+                                  int to = index;
+                                  BackpackManager().moveItem(from, to);
                                 });
                               },
                             );
@@ -907,8 +905,9 @@ class _HomePageState extends State<HomePage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.push(
+                          onPressed: () async {
+                            // Always update state after returning from MinePage
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => MinePage(
@@ -933,6 +932,16 @@ class _HomePageState extends State<HomePage> {
                                       if (hammerfells >= miningCost) {
                                         setState(() {
                                           hammerfells -= miningCost;
+                                          stone++;
+                                          _saveGame();
+                                        });
+                                        success = true;
+                                      }
+                                    } else if (ore == 'coal') {
+                                      if (hammerfells >= miningCost) {
+                                        setState(() {
+                                          hammerfells -= miningCost;
+                                          coal++;
                                           _saveGame();
                                         });
                                         success = true;
@@ -944,25 +953,10 @@ class _HomePageState extends State<HomePage> {
                                   onOpenFurnace: _openFurnace,
                                   mineOreChances: mineOreChances,
                                   pickOreForMine: (mineType) => pickOreForMine(mineOreChances, _rng, mineType),
-                                  hasEnteredMine: hasEnteredMine && currentMine != null,
-                                  initialMine: currentMine,
-                                  onEnterMine: (mine) {
-                                    setState(() {
-                                      hasEnteredMine = true;
-                                      currentMine = mine is Mine ? mine : Mine.fromJson(Map<String, dynamic>.from(mine));
-                                    });
-                                  },
-                                  onSearchNewMine: () {
-                                    setState(() {
-                                      hasEnteredMine = false;
-                                      currentMine = null;
-                                    });
-                                  },
-                                  backpack: backpack,
-                                  addToBackpack: addToBackpack,
                                 ),
                               ),
                             );
+                            setState(() {}); // Refresh state after returning
                           },
                           icon: const Icon(Icons.construction),
                           label: const Text('Mine'),
