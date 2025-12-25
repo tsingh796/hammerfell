@@ -304,31 +304,96 @@ class _MinePageState extends State<MinePage> {
                                   itemCount: 5,
                                   itemBuilder: (context, index) {
                                     final slot = widget.backpack[index];
-                                    return Container(
-                                      decoration: BoxDecoration(
-                                        border: Border.all(color: Colors.grey, width: 2),
-                                        color: slot == null ? Colors.black.withOpacity(0.05) : Colors.black.withOpacity(0.15),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      alignment: Alignment.center,
-                                      child: slot != null
-                                          ? Row(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                SvgPicture.asset(_oreAsset(slot['type']), width: 20, height: 20),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  '${slot['count']}',
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 14,
-                                                    color: Colors.black,
+                                    return DragTarget<Map<String, dynamic>>(
+                                      builder: (context, candidateData, rejectedData) {
+                                        return slot != null
+                                            ? Draggable<Map<String, dynamic>>(
+                                                data: {...slot, 'from': index},
+                                                feedback: Material(
+                                                  color: Colors.transparent,
+                                                  child: Container(
+                                                    width: 48,
+                                                    height: 48,
+                                                    decoration: BoxDecoration(
+                                                      border: Border.all(color: Colors.amber, width: 2),
+                                                      color: Colors.black.withOpacity(0.7),
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisAlignment: MainAxisAlignment.center,
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        SvgPicture.asset(_oreAsset(slot['type']), width: 20, height: 20),
+                                                        const SizedBox(width: 4),
+                                                        Text('${slot['count']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
+                                                      ],
+                                                    ),
                                                   ),
                                                 ),
-                                              ],
-                                            )
-                                          : const SizedBox.shrink(),
+                                                childWhenDragging: Container(
+                                                  decoration: BoxDecoration(
+                                                    border: Border.all(color: Colors.grey, width: 2),
+                                                    color: Colors.black.withOpacity(0.05),
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                ),
+                                                onDragCompleted: () {},
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    border: Border.all(color: Colors.grey, width: 2),
+                                                    color: Colors.black.withOpacity(0.15),
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                  alignment: Alignment.center,
+                                                  child: Row(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      SvgPicture.asset(_oreAsset(slot['type']), width: 20, height: 20),
+                                                      const SizedBox(width: 4),
+                                                      Text('${slot['count']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black)),
+                                                    ],
+                                                  ),
+                                                ),
+                                              )
+                                            : Container(
+                                                decoration: BoxDecoration(
+                                                  border: Border.all(color: Colors.grey, width: 2),
+                                                  color: Colors.black.withOpacity(0.05),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                              );
+                                      },
+                                      onWillAccept: (data) {
+                                        if (data == null) return false;
+                                        // Accept if empty or same type and not full
+                                        if (slot == null) return true;
+                                        if (slot['type'] == data['type'] && (slot['count'] as int) < 64) return true;
+                                        return false;
+                                      },
+                                      onAccept: (data) {
+                                        setState(() {
+                                          int from = data['from'] as int;
+                                          int movingCount = data['count'] as int;
+                                          String movingType = data['type'] as String;
+                                          if (slot == null) {
+                                            // Move all
+                                            widget.backpack[index] = {'type': movingType, 'count': movingCount};
+                                            widget.backpack[from] = null;
+                                          } else if (slot['type'] == movingType) {
+                                            int available = 64 - (slot['count'] as int);
+                                            if (available >= movingCount) {
+                                              // All fits
+                                              slot['count'] = (slot['count'] as int) + movingCount;
+                                              widget.backpack[from] = null;
+                                            } else if (available > 0) {
+                                              // Partial fit
+                                              slot['count'] = 64;
+                                              widget.backpack[from]!['count'] = movingCount - available;
+                                            } // else: shouldn't happen due to onWillAccept
+                                          }
+                                        });
+                                      },
                                     );
                                   },
                                 ),
