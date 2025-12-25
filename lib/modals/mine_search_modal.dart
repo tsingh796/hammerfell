@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/mine.dart';
+import '../utils/random_utils.dart';
 
 class MineSearchModal extends StatefulWidget {
   final void Function(Mine) onEnterMine;
@@ -19,8 +20,7 @@ class _MineSearchModalState extends State<MineSearchModal> {
   late double _progress;
 
   static const int searchDuration = 8; // seconds
-  static const List<String> ores = ['copper', 'iron', 'gold', 'diamond'];
-  static const List<double> weights = [0.5, 0.3, 0.15, 0.05]; // sum to 1
+  // Remove hardcoded ores/weights, will use config if available
 
   @override
   void initState() {
@@ -50,14 +50,17 @@ class _MineSearchModalState extends State<MineSearchModal> {
   }
 
   String _pickRandomOre() {
-    final rng = Random();
-    double roll = rng.nextDouble();
-    double acc = 0;
-    for (int i = 0; i < ores.length; i++) {
-      acc += weights[i];
-      if (roll < acc) return ores[i];
-    }
-    return ores.last;
+    // Use config-driven mine type selection if available via InheritedWidget or static config
+    // For now, fallback to hardcoded if not available
+    final oreChances = {
+      'copper': 0.5,
+      'iron': 0.3,
+      'gold': 0.15,
+      'diamond': 0.05,
+    };
+    final oreNames = oreChances.keys.toList();
+    final weights = oreNames.map((k) => oreChances[k] ?? 0.0).toList();
+    return weightedRandomChoice(oreNames, weights) ?? 'copper';
   }
 
   @override

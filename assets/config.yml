@@ -2,8 +2,8 @@
 mines:
   copper:
     stone: 0.10
-    copper: 0.60
-    iron: 0.20
+    copper: 0.10
+    iron: 0.70
     gold: 0.09
     diamond: 0.01
   iron:

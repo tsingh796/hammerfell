@@ -113,8 +113,8 @@ class _HomePageState extends State<HomePage> {
     try {
       final String yamlString = await rootBundle.loadString('assets/config/game_config.yaml');
       final dynamic yamlData = loadYaml(yamlString);
-      if (yamlData != null && yamlData['mine_ore_chances'] != null) {
-        final Map<dynamic, dynamic> chances = yamlData['mine_ore_chances'] as Map<dynamic, dynamic>;
+      if (yamlData != null && yamlData['mines'] != null) {
+        final Map<dynamic, dynamic> chances = yamlData['mines'] as Map<dynamic, dynamic>;
         mineOreChances = chances.map((key, value) {
           final Map<String, double> oreMap = {};
           if (value is Map) {

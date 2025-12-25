@@ -1,7 +1,12 @@
 
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import '../modals/mine_search_modal.dart';
+
 import '../models/mine.dart';
+import '../utils/random_utils.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 
 class MinePage extends StatefulWidget {
@@ -35,11 +40,56 @@ class MinePage extends StatefulWidget {
 }
 
 class _MinePageState extends State<MinePage> {
+    String? _nextOre;
+    final Random _rng = Random();
+    // Helper to get ore icon asset path
+    String _oreAsset(String ore) {
+      switch (ore) {
+        case 'iron':
+          return 'assets/images/iron_ore.svg';
+        case 'copper':
+          return 'assets/images/copper_ore.svg';
+        case 'gold':
+          return 'assets/images/gold_ore.svg';
+        case 'diamond':
+          return 'assets/images/diamond.svg';
+        default:
+          return 'assets/images/stone.svg';
+      }
+    }
+
+    // Cracking overlay asset for animation (2 steps)
+    String _crackAsset(int step, String ore) {
+      // You can add your own assets for more steps or different ores
+      if (step == 1) {
+        return 'assets/images/crack1.svg';
+      } else if (step == 2) {
+        return 'assets/images/crack2.svg';
+      }
+      return '';
+    }
+
+    // Helper to pick next ore using weightedRandomChoice utility
+    String _pickNextOre() {
+      final oreChances = widget.mineOreChances[_currentMine!.oreType];
+      if (oreChances == null || oreChances.isEmpty) return _currentMine!.oreType;
+      final oreNames = oreChances.keys.toList();
+      final weights = oreNames.map((k) => oreChances[k] ?? 0.0).toList();
+      return weightedRandomChoice(oreNames, weights, rng: _rng) ?? _currentMine!.oreType;
+    }
   dynamic _currentMine;
   bool _mining = false;
+  int _crackStep = 0;
+  bool _isPressed = false;
   String? _mineResult;
   // Each slot: {'type': oreType, 'count': int}
   final List<Map<String, dynamic>?> _backpack = List.filled(5, null, growable: false);
+
+  // Helper for readable text color (copied from main.dart)
+  Color _readableTextColor(Color background) {
+    // Simple luminance check for dark/light backgrounds
+    return background.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+  }
 
   void _searchMine() {
     showModalBottomSheet(
@@ -88,6 +138,10 @@ class _MinePageState extends State<MinePage> {
     if (_currentMine == null && widget.initialMine != null) {
       _currentMine = widget.initialMine;
     }
+    // Initialize _nextOre when entering a mine
+    if (_currentMine != null && _nextOre == null) {
+      _nextOre = _pickNextOre();
+    }
     return Scaffold(
       appBar: AppBar(title: const Text('Mine')),
       body: Stack(
@@ -103,60 +157,124 @@ class _MinePageState extends State<MinePage> {
                       const SizedBox(height: 20),
                       Center(
                         child: GestureDetector(
-                          onTap: _mining
+                          onLongPressStart: (_mining || _nextOre == null)
                               ? null
-                              : () async {
+                              : (details) async {
                                   setState(() {
+                                    _isPressed = true;
                                     _mining = true;
                                     _mineResult = null;
+                                    _crackStep = 1;
                                   });
-                                  final oreType = widget.pickOreForMine(_currentMine!.oreType);
-                                  final success = await widget.onMine(oreType);
+                                  // Haptic feedback for tactile feel
+                                  Feedback.forLongPress(context);
+                                  await Future.delayed(const Duration(milliseconds: 400));
+                                  setState(() {
+                                    _crackStep = 2;
+                                  });
+                                  await Future.delayed(const Duration(milliseconds: 400));
+                                  final oreType = _nextOre!;
+                                  await widget.onMine(oreType); // Always succeed
                                   setState(() {
                                     _mining = false;
-                                    _mineResult = success ? 'Mined $oreType!' : 'Failed!';
-                                    if (success) {
-                                      bool added = false;
-                                      for (var slot in _backpack) {
-                                        if (slot != null && slot['type'] == oreType && (slot['count'] as int) < 64) {
-                                          slot['count'] = (slot['count'] as int) + 1;
+                                    _crackStep = 0;
+                                    _isPressed = false;
+                                    _mineResult = 'Mined $oreType!';
+                                    bool added = false;
+                                    for (var slot in _backpack) {
+                                      if (slot != null && slot['type'] == oreType && (slot['count'] as int) < 64) {
+                                        slot['count'] = (slot['count'] as int) + 1;
+                                        added = true;
+                                        break;
+                                      }
+                                    }
+                                    if (!added) {
+                                      for (int i = 0; i < _backpack.length; i++) {
+                                        if (_backpack[i] == null) {
+                                          _backpack[i] = {'type': oreType, 'count': 1};
                                           added = true;
                                           break;
                                         }
                                       }
-                                      if (!added) {
-                                        for (int i = 0; i < _backpack.length; i++) {
-                                          if (_backpack[i] == null) {
-                                            _backpack[i] = {'type': oreType, 'count': 1};
-                                            added = true;
-                                            break;
-                                          }
-                                        }
-                                      }
                                     }
+                                    // Pick next ore for next mining
+                                    _nextOre = _pickNextOre();
                                   });
                                 },
+                          onLongPressEnd: (_mining || _nextOre == null)
+                              ? null
+                              : (details) {
+                                  // If user releases early, reset animation
+                                  if (_mining) {
+                                    setState(() {
+                                      _mining = false;
+                                      _crackStep = 0;
+                                      _isPressed = false;
+                                    });
+                                  }
+                                },
+                          onTapDown: (_) {
+                            if (!_mining && _nextOre != null) {
+                              setState(() {
+                                _isPressed = true;
+                              });
+                            }
+                          },
+                          onTapUp: (_) {
+                            if (_isPressed) {
+                              setState(() {
+                                _isPressed = false;
+                              });
+                            }
+                          },
+                          onTapCancel: () {
+                            if (_isPressed) {
+                              setState(() {
+                                _isPressed = false;
+                              });
+                            }
+                          },
                           child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            width: 100,
-                            height: 100,
+                            duration: const Duration(milliseconds: 100),
+                            width: _isPressed ? 92 : 100,
+                            height: _isPressed ? 92 : 100,
                             decoration: BoxDecoration(
-                              color: _mining
-                                  ? Colors.grey
+                              color: _mining || _isPressed
+                                  ? Colors.grey[800]
                                   : Theme.of(context).colorScheme.primary,
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
+                                  color: Colors.black.withOpacity(0.25),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 6),
                                 ),
                               ],
+                              border: Border.all(
+                                color: _isPressed ? Colors.amber : Colors.black54,
+                                width: _isPressed ? 3 : 2,
+                              ),
                             ),
                             alignment: Alignment.center,
-                            child: _mining
-                                ? const CircularProgressIndicator()
-                                : const Icon(Icons.construction, size: 48, color: Colors.white),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                _nextOre != null
+                                    ? SvgPicture.asset(_oreAsset(_nextOre!), width: 48, height: 48)
+                                    : const Icon(Icons.construction, size: 48, color: Colors.white),
+                                if (_crackStep > 0)
+                                  SvgPicture.asset(_crackAsset(_crackStep, _nextOre!), width: 48, height: 48),
+                                if (_isPressed && !_mining)
+                                  Container(
+                                    width: 100,
+                                    height: 100,
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.18),
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -188,16 +306,18 @@ class _MinePageState extends State<MinePage> {
                                   ),
                                   alignment: Alignment.center,
                                   child: slot != null
-                                      ? Column(
+                                      ? Row(
                                           mainAxisAlignment: MainAxisAlignment.center,
                                           children: [
-                                            Text(
-                                              slot['type'][0].toUpperCase() + slot['type'].substring(1),
-                                              style: const TextStyle(fontWeight: FontWeight.bold),
-                                            ),
+                                            SvgPicture.asset(_oreAsset(slot['type']), width: 20, height: 20),
+                                            const SizedBox(width: 4),
                                             Text(
                                               '${slot['count']}',
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                                color: _readableTextColor(Colors.amber[200]!),
+                                              ),
                                             ),
                                           ],
                                         )
@@ -218,6 +338,7 @@ class _MinePageState extends State<MinePage> {
                           setState(() {
                             _currentMine = null;
                             _mineResult = null;
+                            _nextOre = null;
                           });
                         },
                         child: const Text('Leave Mine'),
