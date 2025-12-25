@@ -1,0 +1,401 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+
+import '../utils/backpack_manager.dart';
+import 'item_icon.dart';
+
+class FurnaceState {
+  Map<String, dynamic>? input; // {'type': ore, 'count': n}
+  Map<String, dynamic>? fuel; // {'type': 'coal', 'count': n}
+  Map<String, dynamic>? output; // {'type': ingot, 'count': n}
+  bool isSmelting = false;
+  int oreSecondsRemaining = 0;
+  int fuelSecondsRemaining = 0;
+  Timer? _timer;
+
+  // Add ore to input slot (up to 64)
+  void addOre(Map<String, dynamic> ore, int count, VoidCallback onUpdate) {
+    if (input == null) {
+      input = {'type': ore['type'], 'count': count};
+    } else if (input!['type'] == ore['type'] && input!['count'] < 64) {
+      input!['count'] = (input!['count'] as int) + count;
+      if (input!['count'] > 64) input!['count'] = 64;
+    }
+    onUpdate();
+  }
+
+  // Add coal to fuel slot (up to 64 queued)
+  void addCoal(int count, VoidCallback onUpdate) {
+    if (fuel == null) {
+      fuel = {'type': 'coal', 'count': count};
+    } else if (fuel!['count'] < 64) {
+      fuel!['count'] = (fuel!['count'] as int) + count;
+      if (fuel!['count'] > 64) fuel!['count'] = 64;
+    }
+    // If not burning, start burning one coal
+    if (fuelSecondsRemaining <= 0 && fuel != null && fuel!['count'] > 0) {
+      fuelSecondsRemaining = 64;
+      fuel!['count'] -= 1;
+      if (fuel!['count'] == 0) fuel = null;
+    }
+    onUpdate();
+  }
+
+  // Remove from output slot (collect to backpack)
+  Map<String, dynamic>? takeOutput() {
+    if (output != null && output!['count'] > 0) {
+      final out = {'type': output!['type'], 'count': output!['count']};
+      output = null;
+      return out;
+    }
+    return null;
+  }
+
+  // Called to start smelting if possible
+  void startSmelting(VoidCallback onUpdate, VoidCallback onComplete) {
+    if (input == null || input!['count'] == 0 || isSmelting || fuelSecondsRemaining < 8 || (output != null && output!['count'] >= 64)) return;
+    isSmelting = true;
+    oreSecondsRemaining = 2;
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      oreSecondsRemaining--;
+      fuelSecondsRemaining--;
+      onUpdate();
+      // If fuel runs out, try to burn next coal
+      if (fuelSecondsRemaining == 0 && fuel != null && fuel!['count'] > 0) {
+        fuelSecondsRemaining = 64;
+        fuel!['count'] -= 1;
+        if (fuel!['count'] == 0) fuel = null;
+      }
+      // Stop if any stop condition met
+      if (oreSecondsRemaining <= 0) {
+        // Only smelt if output slot is not full
+        if (output == null) {
+          output = _getSmeltedResult(input!);
+        } else if (output!['count'] < 64) {
+          output!['count'] += 1;
+        }
+        input!['count'] -= 1;
+        if (input!['count'] == 0) input = null;
+        timer.cancel();
+        isSmelting = false;
+        onComplete();
+        // Auto-continue if possible
+        if (input != null && input!['count'] > 0 && fuelSecondsRemaining >= 8 && (output == null || output!['count'] < 64)) {
+          startSmelting(onUpdate, onComplete);
+        }
+      }
+      // Stop if fuel runs out or output is full or input is empty
+      if (fuelSecondsRemaining < 8 || input == null || (output != null && output!['count'] >= 64)) {
+        timer.cancel();
+        isSmelting = false;
+        onComplete();
+      }
+    });
+  }
+
+  void stopSmelting() {
+    _timer?.cancel();
+    isSmelting = false;
+    oreSecondsRemaining = 0;
+  }
+
+  void clear() {
+    input = null;
+    output = null;
+    fuel = null;
+    stopSmelting();
+    fuelSecondsRemaining = 0;
+  }
+
+  Map<String, dynamic>? _getSmeltedResult(Map<String, dynamic> item) {
+    final type = item['type'];
+    if (type == 'copper') {
+      return {'type': 'copper_ingot', 'count': 1};
+    } else if (type == 'iron') {
+      return {'type': 'iron_ingot', 'count': 1};
+    } else if (type == 'gold') {
+      return {'type': 'gold_ingot', 'count': 1};
+    }
+    return null;
+  }
+}
+
+
+class FurnaceWidget extends StatefulWidget {
+  final FurnaceState furnaceState;
+  final VoidCallback onStateChanged;
+  const FurnaceWidget({super.key, required this.furnaceState, required this.onStateChanged});
+
+  @override
+  State<FurnaceWidget> createState() => _FurnaceWidgetState();
+}
+
+class _FurnaceWidgetState extends State<FurnaceWidget> {
+
+  // Use ItemIcon widget for all item icons
+  Widget _itemIcon(String type, int count) {
+    return ItemIcon(type: type, count: count);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final furnace = widget.furnaceState;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Input slot (ore)
+            _buildSlot(furnace.input, 'Input',
+              onAccept: (item) {
+                setState(() {
+                  if (item['type'] == 'copper' || item['type'] == 'iron' || item['type'] == 'gold') {
+                    int count = item['count'] ?? 1;
+                    furnace.addOre(item, count, () {});
+                    widget.onStateChanged();
+                  }
+                });
+              },
+              acceptTypes: ['copper', 'iron', 'gold'],
+              count: furnace.input != null ? furnace.input!['count'] : 0,
+              draggable: furnace.input != null,
+              dragData: furnace.input != null ? {...furnace.input!, 'slot': 'input'} : null,
+              iconBuilder: furnace.input != null ? () => ItemIcon(type: furnace.input!['type'], count: furnace.input!['count']) : null,
+            ),
+            const SizedBox(width: 16),
+            // Output slot
+            _buildSlot(furnace.output, 'Output',
+              isOutput: true,
+              onAccept: (item) {
+                setState(() {
+                  if (furnace.output != null && furnace.output!['count'] > 0) {
+                    for (int i = 0; i < furnace.output!['count']; i++) {
+                      BackpackManager().addItem(furnace.output!['type']);
+                    }
+                    furnace.output = null;
+                    widget.onStateChanged();
+                  }
+                });
+              },
+              count: furnace.output != null ? furnace.output!['count'] : 0,
+              draggable: false,
+              iconBuilder: furnace.output != null ? () => ItemIcon(type: furnace.output!['type'], count: furnace.output!['count']) : null,
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // Fuel slot (coal)
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildSlot(furnace.fuel, 'Fuel',
+              onAccept: (item) {
+                if (item['type'] == 'coal') {
+                  setState(() {
+                    int count = item['count'] ?? 1;
+                    furnace.addCoal(count, () {});
+                    widget.onStateChanged();
+                  });
+                }
+              },
+              acceptTypes: ['coal'],
+              isFuel: true,
+              fuelSeconds: furnace.fuelSecondsRemaining,
+              count: furnace.fuel != null ? furnace.fuel!['count'] : 0,
+              draggable: furnace.fuel != null,
+              dragData: furnace.fuel != null ? {...furnace.fuel!, 'slot': 'fuel'} : null,
+              iconBuilder: furnace.fuel != null ? () => ItemIcon(type: furnace.fuel!['type'], count: furnace.fuel!['count']) : null,
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        // Smelting progress
+        if (furnace.isSmelting)
+          Text('Smelting... ${furnace.oreSecondsRemaining}s'),
+        if (!furnace.isSmelting && furnace.input != null && furnace.input!['count'] > 0 && furnace.fuelSecondsRemaining >= 8 && (furnace.output == null || furnace.output!['count'] < 64))
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                furnace.startSmelting(() => setState(() {}), widget.onStateChanged);
+              });
+            },
+            child: const Text('Start Smelting'),
+          ),
+        if (furnace.fuelSecondsRemaining > 0)
+          Text('Fuel time left: ${furnace.fuelSecondsRemaining}s'),
+        const SizedBox(height: 24),
+        // Backpack grid (global)
+        const Text('Backpack'),
+        _buildBackpackGrid(),
+      ],
+    );
+  }
+
+  Widget _buildSlot(
+    Map<String, dynamic>? item,
+    String label, {
+    bool isOutput = false,
+    bool isFuel = false,
+    int fuelSeconds = 0,
+    int count = 0,
+    required Function(Map<String, dynamic>) onAccept,
+    List<String>? acceptTypes,
+    bool draggable = false,
+    Map<String, dynamic>? dragData,
+    Widget Function()? iconBuilder,
+  }) {
+    return DragTarget<Map<String, dynamic>>(
+      builder: (context, candidateData, rejectedData) {
+        Widget childWidget;
+        // Make output slot draggable if it has an item
+        if (item != null && iconBuilder != null && (draggable || isOutput)) {
+          childWidget = Draggable<Map<String, dynamic>>(
+            data: {
+              ...item,
+              'slot': isOutput ? 'output' : dragData?['slot'] ?? '',
+            },
+            feedback: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.amber, width: 2),
+                  color: Colors.black.withOpacity(0.7),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(child: iconBuilder()),
+              ),
+            ),
+            childWhenDragging: Container(),
+            child: Center(child: iconBuilder()),
+          );
+        } else if (item != null && iconBuilder != null) {
+          childWidget = Center(child: iconBuilder());
+        } else if (isFuel && fuelSeconds > 0) {
+          childWidget = Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.local_fire_department, color: Colors.orange),
+              Text('$fuelSeconds s', style: const TextStyle(fontSize: 10)),
+              if (count > 0) Text('$count', style: const TextStyle(fontSize: 10)),
+            ],
+          );
+        } else {
+          childWidget = Text(label, style: const TextStyle(fontSize: 12));
+        }
+        return Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            border: Border.all(color: isFuel ? Colors.orange : Colors.grey, width: 2),
+            color: isFuel && fuelSeconds > 0 ? Colors.orange.withOpacity(0.2) : Colors.black.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          alignment: Alignment.center,
+          child: childWidget,
+        );
+      },
+      onWillAccept: (data) {
+        // Only allow dropping into non-output slots
+        if (isOutput) return false;
+        if (acceptTypes != null && data != null && !acceptTypes.contains(data['type'])) return false;
+        if (isFuel && fuelSeconds > 0) return false; // Don't allow adding more coal while burning
+        return true;
+      },
+      onAccept: onAccept,
+    );
+  }
+
+  Widget _buildBackpackGrid() {
+    final backpack = BackpackManager().backpack;
+    return SizedBox(
+      height: 60,
+      child: GridView.builder(
+        shrinkWrap: true,
+        padding: EdgeInsets.zero,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 5,
+          mainAxisSpacing: 4,
+          crossAxisSpacing: 4,
+          childAspectRatio: 1,
+        ),
+        itemCount: 5,
+        itemBuilder: (context, index) {
+          final slot = backpack[index];
+          return DragTarget<Map<String, dynamic>>(
+            builder: (context, candidateData, rejectedData) {
+              return Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey, width: 2),
+                  color: slot != null ? Colors.black.withOpacity(0.15) : Colors.black.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: slot != null
+                    ? Draggable<Map<String, dynamic>>(
+                        data: {...slot, 'from': index},
+                        feedback: Material(
+                          color: Colors.transparent,
+                          child: Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.amber, width: 2),
+                              color: Colors.black.withOpacity(0.7),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(child: ItemIcon(type: slot['type'], count: slot['count'])),
+                          ),
+                        ),
+                        childWhenDragging: Container(),
+                        child: Center(child: ItemIcon(type: slot['type'], count: slot['count'])),
+                      )
+                    : null,
+              );
+            },
+            onWillAccept: (data) => true,
+            onAccept: (data) {
+              setState(() {
+                // 1. Move item from backpack to furnace: decrement backpack count
+                if (data['from'] != null && data['slot'] != null) {
+                  int fromIdx = data['from'];
+                  int moveCount = data['count'] ?? 1;
+                  if (backpack[fromIdx] != null) {
+                    backpack[fromIdx]!['count'] -= moveCount;
+                    if (backpack[fromIdx]!['count'] <= 0) backpack[fromIdx] = null;
+                    BackpackManager().save();
+                  }
+                }
+                // 2. Move item from furnace (input/fuel) to backpack: add item back and clear slot
+                else if (data['type'] != null && data['count'] != null && data['slot'] != null) {
+                  BackpackManager().addItem(data['type']);
+                  if (data['slot'] == 'input' && widget.furnaceState.input != null) {
+                    widget.furnaceState.input = null;
+                  } else if (data['slot'] == 'fuel' && widget.furnaceState.fuel != null) {
+                    widget.furnaceState.fuel = null;
+                  }
+                }
+                // 3. Move item from output slot to backpack: add 1 to backpack and decrement output
+                else if (data['slot'] == 'output' && data['type'] != null && data['count'] != null) {
+                  BackpackManager().addItem(data['type']);
+                  if (widget.furnaceState.output != null && widget.furnaceState.output!['count'] > 1) {
+                    widget.furnaceState.output!['count'] -= 1;
+                  } else {
+                    widget.furnaceState.output = null;
+                  }
+                }
+                // 4. Move item within backpack
+                else if (data['from'] != null) {
+                  BackpackManager().moveItem(data['from'], index);
+                }
+                widget.onStateChanged();
+              });
+            },
+          );
+        },
+      ),
+    );
+  }
+}

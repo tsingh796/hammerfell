@@ -9,6 +9,8 @@ import '../modals/mine_search_modal.dart';
 import '../utils/random_utils.dart';
 import '../utils/backpack_manager.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../widgets/item_icon.dart';
+import '../widgets/furnace_widget.dart';
 
 class Mine {
   final String oreType;
@@ -52,6 +54,9 @@ class _MinePageState extends State<MinePage> {
   bool _isPressed = false;
   int _crackStep = 0;
   String? _mineResult;
+
+  // Add a local furnace state for this page
+  final FurnaceState _furnaceState = FurnaceState();
 
   @override
   void initState() {
@@ -202,13 +207,21 @@ class _MinePageState extends State<MinePage> {
     } else {
       showModalBottomSheet(
         context: context,
-        isDismissible: false,
+        isDismissible: true,
         enableDrag: false,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
         ),
-        builder: (c) => const Center(child: Text('Furnace modal here')),
+        builder: (c) => Padding(
+          padding: const EdgeInsets.all(16),
+          child: FurnaceWidget(
+            furnaceState: _furnaceState,
+            onStateChanged: () {
+              setState(() {});
+            },
+          ),
+        ),
       );
     }
   }
@@ -324,9 +337,10 @@ class _MinePageState extends State<MinePage> {
                               alignment: Alignment.center,
                               children: [
                                 _nextOre != null
-                                    ? SvgPicture.asset(_oreAsset(_nextOre!), width: 48, height: 48)
-                                    : const Icon(Icons.construction, size: 48, color: Colors.white),
+                                  ? ItemIcon(type: _nextOre!, count: 1, size: 48, showCount: false)
+                                  : const Icon(Icons.construction, size: 48, color: Colors.white),
                                 if (_crackStep > 0)
+                                  // Crack overlay remains SVG, as it's a visual effect, not an item icon
                                   SvgPicture.asset(_crackAsset(_crackStep, _nextOre!), width: 48, height: 48),
                                 if (_isPressed && !_mining)
                                   Container(
@@ -406,9 +420,7 @@ class _MinePageState extends State<MinePage> {
                                                       mainAxisAlignment: MainAxisAlignment.center,
                                                       mainAxisSize: MainAxisSize.min,
                                                       children: [
-                                                        SvgPicture.asset(_oreAsset(slot['type']), width: 20, height: 20),
-                                                        const SizedBox(width: 4),
-                                                        Text('${slot['count']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
+                                                        ItemIcon(type: slot['type'], count: slot['count'], size: 20),
                                                       ],
                                                     ),
                                                   ),
@@ -432,9 +444,7 @@ class _MinePageState extends State<MinePage> {
                                                     mainAxisAlignment: MainAxisAlignment.center,
                                                     mainAxisSize: MainAxisSize.min,
                                                     children: [
-                                                      SvgPicture.asset(_oreAsset(slot['type']), width: 20, height: 20),
-                                                      const SizedBox(width: 4),
-                                                      Text('${slot['count']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black)),
+                                                      ItemIcon(type: slot['type'], count: slot['count'], size: 20),
                                                     ],
                                                   ),
                                                 ),

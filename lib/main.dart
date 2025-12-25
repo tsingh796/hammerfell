@@ -8,7 +8,7 @@ import 'utils/backpack_manager.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:yaml/yaml.dart';
-import 'modals/furnace_modal.dart';
+import 'widgets/furnace_widget.dart';
 import 'modals/mine_modal.dart';
 import 'utils/color_utils.dart';
 // import 'modals/forest_modal.dart';
@@ -65,6 +65,32 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+      void resetDebug10() {
+        setState(() {
+          hammerfells = 50;
+          ironOre = 10;
+          copperOre = 10;
+          goldOre = 10;
+          diamond = 10;
+          coal = 10;
+          stone = 10;
+          ironIngot = 10;
+          copperIngot = 10;
+          goldIngot = 10;
+          copperCoins = 10;
+          silverCoins = 10;
+          goldCoins = 10;
+          // Reset backpack to 10 of each for demo
+          for (int i = 0; i < BackpackManager().backpack.length; i++) {
+            BackpackManager().backpack[i] = null;
+          }
+          BackpackManager().backpack[0] = {'type': 'coal', 'count': 10};
+          BackpackManager().backpack[1] = {'type': 'iron', 'count': 10};
+          BackpackManager().save();
+          _saveGame();
+        });
+      }
+    FurnaceState? _homeFurnaceState;
   // Backpack inventory: Each slot is {'type': oreType, 'count': int}
   // Use global backpack singleton
 
@@ -518,26 +544,23 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openFurnace() {
+    _homeFurnaceState ??= FurnaceState();
     showModalBottomSheet(
       context: context,
-      isDismissible: false,
+      isDismissible: true,
       enableDrag: false,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
       ),
-      builder: (c) => FurnaceModal(
-        hammerfells: hammerfells,
-        ironOre: ironOre,
-        copperOre: copperOre,
-        goldOre: goldOre,
-        onSmelt: (ore) {
-          if (ore == 'iron') {
-            smeltIron();
-          } else if (ore == 'copper') smeltCopper();
-          else if (ore == 'gold') smeltGold();
-        },
-        onClose: () => Navigator.of(c).pop(),
+      builder: (c) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: FurnaceWidget(
+          furnaceState: _homeFurnaceState!,
+          onStateChanged: () {
+            setState(() {});
+          },
+        ),
       ),
     );
   }
@@ -602,6 +625,25 @@ class _HomePageState extends State<HomePage> {
                             ),
                           );
                           if (confirm == true) resetGame();
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.bug_report),
+                        title: const Text('Reset (debug-10)'),
+                        onTap: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (c) => AlertDialog(
+                              title: const Text('Set all values to 10?'),
+                              content: const Text('This will set ores, ingots, coins, and backpack to 10 for debugging.'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.of(c).pop(false), child: const Text('Cancel')),
+                                TextButton(onPressed: () => Navigator.of(c).pop(true), child: const Text('Set to 10')),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) resetDebug10();
                           Navigator.of(context).pop();
                         },
                       ),
