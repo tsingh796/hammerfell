@@ -9,7 +9,6 @@ import 'package:yaml/yaml.dart';
 import 'modals/furnace_modal.dart';
 import 'modals/mine_modal.dart';
 import 'utils/color_utils.dart';
-import 'utils/animation_utils.dart';
 // import 'modals/forest_modal.dart';
 import 'pages/mine_page.dart';
 import 'pages/forest_page.dart';
@@ -45,6 +44,32 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  // Backpack inventory: Each slot is {'type': oreType, 'count': int}
+  final List<Map<String, dynamic>?> backpack = List.filled(5, null, growable: false);
+
+  // Public ore asset helper for use in backpack grid
+  static String oreAsset(String oreType) {
+    switch (oreType) {
+      case 'iron':
+      case 'iron_ore':
+        return 'assets/images/iron_ore.svg';
+      case 'copper':
+      case 'copper_ore':
+        return 'assets/images/copper_ore.svg';
+      case 'gold':
+      case 'gold_ore':
+        return 'assets/images/gold_ore.svg';
+      case 'diamond':
+        return 'assets/images/diamond.svg';
+      case 'stone':
+        return 'assets/images/stone.svg';
+      default:
+        return 'assets/images/unknown_ore.svg';
+    }
+  }
+
+  // Instance helper for use in widget tree
+  String _oreAsset(String oreType) => oreAsset(oreType);
   // Track if a mine has been entered and which mine
   bool hasEnteredMine = false;
   dynamic currentMine; // Use dynamic to avoid import issues, or import the Mine model if available
@@ -315,9 +340,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Color _readableTextColor(Color background) {
-    return readableTextColor(background);
-  }
 
   void addHammerfellsAmount(int amount) {
     setState(() {
@@ -429,40 +451,31 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _openMine() {
-    showModalBottomSheet(
-      context: context,
-      isDismissible: true,
-      enableDrag: true,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-      ),
-      builder: (c) => MineModal(
-        hammerfells: hammerfells,
-        miningChances: {
-          'iron': ironMineChance,
-          'copper': copperMineChance,
-          'gold': goldMineChance,
-          'diamond': diamondMineChance,
-        },
-        onMine: (ore) async {
-          bool success = false;
-          if (ore == 'iron') {
-            success = await mineIronOre();
-          } else if (ore == 'copper') success = await mineCopperOre();
-          else if (ore == 'gold') success = await mineGoldOre();
-          else if (ore == 'diamond') success = await mineDiamond();
-          _pulseRow(ore, success);
-          return success;
-        },
 
-      ),
-    );
+
+
+
+  // Helper to add ore to backpack
+  void addToBackpack(String oreType) {
+    bool added = false;
+    for (var slot in backpack) {
+      if (slot != null && slot['type'] == oreType && (slot['count'] as int) < 64) {
+        slot['count'] = (slot['count'] as int) + 1;
+        added = true;
+        break;
+      }
+    }
+    if (!added) {
+      for (int i = 0; i < backpack.length; i++) {
+        if (backpack[i] == null) {
+          backpack[i] = {'type': oreType, 'count': 1};
+          added = true;
+          break;
+        }
+      }
+    }
+    setState(() {});
   }
-
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -696,94 +709,159 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
-              // Bottom: action buttons always at bottom
+
+              // Backpack grid (fixed height, clipped, padding for separation)
+              Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Backpack', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 60,
+                      child: ClipRect(
+                        child: GridView.builder(
+                          shrinkWrap: true,
+                          padding: EdgeInsets.zero,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 5,
+                            mainAxisSpacing: 4,
+                            crossAxisSpacing: 4,
+                            childAspectRatio: 1,
+                          ),
+                          itemCount: 5,
+                          itemBuilder: (context, index) {
+                            final slot = backpack[index];
+                            return Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey, width: 2),
+                                color: slot == null ? Colors.black.withOpacity(0.05) : Colors.black.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              alignment: Alignment.center,
+                              child: slot != null
+                                  ? Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        SvgPicture.asset(_oreAsset(slot['type']), width: 20, height: 20),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${slot['count']}',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: Colors.black,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : const SizedBox.shrink(),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Bottom: action buttons always at bottom, prevent overflow
               Padding(
                 padding: const EdgeInsets.only(top: 8.0),
                 child: Align(
                   alignment: Alignment.bottomCenter,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => MinePage(
-                                hammerfells: hammerfells,
-                                miningChances: {
-                                  'iron': ironMineChance,
-                                  'copper': copperMineChance,
-                                  'gold': goldMineChance,
-                                  'diamond': diamondMineChance,
-                                },
-                                onMine: (ore) async {
-                                  bool success = false;
-                                  if (ore == 'iron') {
-                                    success = await mineIronOre();
-                                  } else if (ore == 'copper') {
-                                    success = await mineCopperOre();
-                                  } else if (ore == 'gold') {
-                                    success = await mineGoldOre();
-                                  } else if (ore == 'diamond') {
-                                    success = await mineDiamond();
-                                  } else if (ore == 'stone') {
-                                    if (hammerfells >= miningCost) {
-                                      setState(() {
-                                        hammerfells -= miningCost;
-                                        _saveGame();
-                                      });
-                                      success = true;
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => MinePage(
+                                  hammerfells: hammerfells,
+                                  miningChances: {
+                                    'iron': ironMineChance,
+                                    'copper': copperMineChance,
+                                    'gold': goldMineChance,
+                                    'diamond': diamondMineChance,
+                                  },
+                                  onMine: (ore) async {
+                                    bool success = false;
+                                    if (ore == 'iron') {
+                                      success = await mineIronOre();
+                                    } else if (ore == 'copper') {
+                                      success = await mineCopperOre();
+                                    } else if (ore == 'gold') {
+                                      success = await mineGoldOre();
+                                    } else if (ore == 'diamond') {
+                                      success = await mineDiamond();
+                                    } else if (ore == 'stone') {
+                                      if (hammerfells >= miningCost) {
+                                        setState(() {
+                                          hammerfells -= miningCost;
+                                          _saveGame();
+                                        });
+                                        success = true;
+                                      }
                                     }
-                                  }
-                                  _pulseRow(ore, success);
-                                  return success;
-                                },
-                                onOpenFurnace: _openFurnace,
-                                mineOreChances: mineOreChances,
-                                pickOreForMine: (mineType) => pickOreForMine(mineOreChances, _rng, mineType),
-                                hasEnteredMine: hasEnteredMine && currentMine != null,
-                                initialMine: currentMine,
-                                onEnterMine: (mine) {
-                                  setState(() {
-                                    hasEnteredMine = true;
-                                    currentMine = mine;
-                                  });
-                                },
-                                onSearchNewMine: () {
-                                  setState(() {
-                                    hasEnteredMine = false;
-                                    currentMine = null;
-                                  });
-                                },
+                                    _pulseRow(ore, success);
+                                    return success;
+                                  },
+                                  onOpenFurnace: _openFurnace,
+                                  mineOreChances: mineOreChances,
+                                  pickOreForMine: (mineType) => pickOreForMine(mineOreChances, _rng, mineType),
+                                  hasEnteredMine: hasEnteredMine && currentMine != null,
+                                  initialMine: currentMine,
+                                  onEnterMine: (mine) {
+                                    setState(() {
+                                      hasEnteredMine = true;
+                                      currentMine = mine;
+                                    });
+                                  },
+                                  onSearchNewMine: () {
+                                    setState(() {
+                                      hasEnteredMine = false;
+                                      currentMine = null;
+                                    });
+                                  },
+                                  backpack: backpack,
+                                  addToBackpack: addToBackpack,
+                                ),
                               ),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.construction),
-                        label: const Text('Mine'),
-                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
-                      ),
-                      const SizedBox(width: 16),
-                      ElevatedButton.icon(
-                        onPressed: _openFurnace,
-                        icon: const Icon(Icons.local_fire_department),
-                        label: const Text('Furnace'),
-                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
-                      ),
-                      const SizedBox(width: 16),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const ForestPage()),
-                          );
-                        },
-                        icon: const Icon(Icons.park),
-                        label: const Text('Forest'),
-                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
-                      ),
-                    ],
+                            );
+                          },
+                          icon: const Icon(Icons.construction),
+                          label: const Text('Mine'),
+                          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                        ),
+                        const SizedBox(width: 16),
+                        ElevatedButton.icon(
+                          onPressed: _openFurnace,
+                          icon: const Icon(Icons.local_fire_department),
+                          label: const Text('Furnace'),
+                          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                        ),
+                        const SizedBox(width: 16),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const ForestPage()),
+                            );
+                          },
+                          icon: const Icon(Icons.park),
+                          label: const Text('Forest'),
+                          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

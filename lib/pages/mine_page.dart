@@ -4,7 +4,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../modals/mine_search_modal.dart';
 
-import '../models/mine.dart';
 import '../utils/random_utils.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -20,6 +19,8 @@ class MinePage extends StatefulWidget {
   final dynamic initialMine;
   final void Function(dynamic)? onEnterMine;
   final VoidCallback? onSearchNewMine;
+  final List<Map<String, dynamic>?> backpack;
+  final void Function(String) addToBackpack;
 
   const MinePage({
     Key? key,
@@ -28,6 +29,8 @@ class MinePage extends StatefulWidget {
     required this.onMine,
     required this.mineOreChances,
     required this.pickOreForMine,
+    required this.backpack,
+    required this.addToBackpack,
     this.onOpenFurnace,
     this.hasEnteredMine = false,
     this.initialMine,
@@ -82,14 +85,9 @@ class _MinePageState extends State<MinePage> {
   int _crackStep = 0;
   bool _isPressed = false;
   String? _mineResult;
-  // Each slot: {'type': oreType, 'count': int}
-  final List<Map<String, dynamic>?> _backpack = List.filled(5, null, growable: false);
+  // Backpack is now passed from parent
 
   // Helper for readable text color (copied from main.dart)
-  Color _readableTextColor(Color background) {
-    // Simple luminance check for dark/light backgrounds
-    return background.computeLuminance() > 0.5 ? Colors.black : Colors.white;
-  }
 
   void _searchMine() {
     showModalBottomSheet(
@@ -174,29 +172,14 @@ class _MinePageState extends State<MinePage> {
                                   });
                                   await Future.delayed(const Duration(milliseconds: 400));
                                   final oreType = _nextOre!;
+                                  // Only update backpack, not homepage grid
                                   await widget.onMine(oreType); // Always succeed
                                   setState(() {
                                     _mining = false;
                                     _crackStep = 0;
                                     _isPressed = false;
                                     _mineResult = 'Mined $oreType!';
-                                    bool added = false;
-                                    for (var slot in _backpack) {
-                                      if (slot != null && slot['type'] == oreType && (slot['count'] as int) < 64) {
-                                        slot['count'] = (slot['count'] as int) + 1;
-                                        added = true;
-                                        break;
-                                      }
-                                    }
-                                    if (!added) {
-                                      for (int i = 0; i < _backpack.length; i++) {
-                                        if (_backpack[i] == null) {
-                                          _backpack[i] = {'type': oreType, 'count': 1};
-                                          added = true;
-                                          break;
-                                        }
-                                      }
-                                    }
+                                    widget.addToBackpack(oreType);
                                     // Pick next ore for next mining
                                     _nextOre = _pickNextOre();
                                   });
@@ -279,55 +262,7 @@ class _MinePageState extends State<MinePage> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      // Backpack grid
-                      Column(
-                        children: [
-                          const Text('Backpack', style: TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            height: 60,
-                            child: GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 5,
-                                mainAxisSpacing: 4,
-                                crossAxisSpacing: 4,
-                                childAspectRatio: 1,
-                              ),
-                              itemCount: 5,
-                              itemBuilder: (context, index) {
-                                final slot = _backpack[index];
-                                return Container(
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey),
-                                    borderRadius: BorderRadius.circular(8),
-                                    color: slot == null ? Colors.transparent : Colors.amber[200],
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: slot != null
-                                      ? Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            SvgPicture.asset(_oreAsset(slot['type']), width: 20, height: 20),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              '${slot['count']}',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14,
-                                                color: _readableTextColor(Colors.amber[200]!),
-                                              ),
-                                            ),
-                                          ],
-                                        )
-                                      : const SizedBox.shrink(),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
+                      // ...existing code...
                       if (_mineResult != null) ...[
                         const SizedBox(height: 12),
                         Text(_mineResult!, style: TextStyle(fontWeight: FontWeight.bold)),
@@ -342,6 +277,65 @@ class _MinePageState extends State<MinePage> {
                           });
                         },
                         child: const Text('Leave Mine'),
+                      ),
+
+                      // Backpack grid (unified style with HomePage)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12, bottom: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('Backpack', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              height: 60,
+                              child: ClipRect(
+                                child: GridView.builder(
+                                  shrinkWrap: true,
+                                  padding: EdgeInsets.zero,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 5,
+                                    mainAxisSpacing: 4,
+                                    crossAxisSpacing: 4,
+                                    childAspectRatio: 1,
+                                  ),
+                                  itemCount: 5,
+                                  itemBuilder: (context, index) {
+                                    final slot = widget.backpack[index];
+                                    return Container(
+                                      decoration: BoxDecoration(
+                                        border: Border.all(color: Colors.grey, width: 2),
+                                        color: slot == null ? Colors.black.withOpacity(0.05) : Colors.black.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: slot != null
+                                          ? Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                SvgPicture.asset(_oreAsset(slot['type']), width: 20, height: 20),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  '${slot['count']}',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 14,
+                                                    color: Colors.black,
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                          : const SizedBox.shrink(),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
