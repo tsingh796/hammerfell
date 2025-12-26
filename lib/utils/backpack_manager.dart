@@ -1,7 +1,10 @@
-  import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 
-class BackpackManager {
+  import 'dart:convert';
+  import 'package:shared_preferences/shared_preferences.dart';
+  import 'package:flutter/foundation.dart';
+
+
+class BackpackManager extends ChangeNotifier {
   static final BackpackManager _instance = BackpackManager._internal();
   factory BackpackManager() => _instance;
   BackpackManager._internal();
@@ -28,12 +31,14 @@ class BackpackManager {
         }
       }
     }
+    notifyListeners();
   }
 
   Future<void> save() async {
     final prefs = await SharedPreferences.getInstance();
     final encoded = backpack.map((slot) => slot == null ? null : Map<String, dynamic>.from(slot)).toList();
     await prefs.setString('global_backpack', jsonEncode(encoded));
+    notifyListeners();
   }
 
   void addItem(String type) {
@@ -55,6 +60,7 @@ class BackpackManager {
       }
     }
     save();
+    notifyListeners();
   }
 
   void moveItem(int from, int to) {
@@ -81,6 +87,7 @@ class BackpackManager {
       backpack[from] = temp;
     }
     save();
+    notifyListeners();
   }
 
   void clear() {
@@ -88,5 +95,6 @@ class BackpackManager {
       backpack[i] = null;
     }
     save();
+    notifyListeners();
   }
 }

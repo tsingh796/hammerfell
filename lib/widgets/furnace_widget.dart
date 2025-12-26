@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../utils/backpack_manager.dart';
+import 'package:provider/provider.dart';
 import 'item_icon.dart';
 
 class FurnaceState {
@@ -248,7 +249,7 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
     return DragTarget<Map<String, dynamic>>(
       builder: (context, candidateData, rejectedData) {
         Widget childWidget;
-        // Make output slot draggable if it has an item
+        // ...existing code...
         if (item != null && iconBuilder != null && (draggable || isOutput)) {
           childWidget = Draggable<Map<String, dynamic>>(
             data: {
@@ -298,104 +299,204 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
         );
       },
       onWillAccept: (data) {
-        // Only allow dropping into non-output slots
+        // ...existing code...
         if (isOutput) return false;
         if (acceptTypes != null && data != null && !acceptTypes.contains(data['type'])) return false;
-        if (isFuel && fuelSeconds > 0) return false; // Don't allow adding more coal while burning
+        if (isFuel && fuelSeconds > 0) return false;
         return true;
       },
-      onAccept: onAccept,
+      onAccept: (data) {
+        // If drag is from backpack, remove from backpack here as well
+        if (data != null && data['from'] != null) {
+          final backpack = BackpackManager().backpack;
+          int fromIdx = data['from'];
+          int moveCount = backpack[fromIdx]?['count'] ?? 1;
+          String type = backpack[fromIdx]?['type'];
+          int actuallyMoved = 0;
+          if (label == 'Input') {
+            if (widget.furnaceState.input != null && widget.furnaceState.input!['type'] == type && widget.furnaceState.input!['count'] < 64) {
+              int space = 64 - (widget.furnaceState.input!['count'] as int);
+              int toMove = moveCount > space ? space : moveCount;
+              if (toMove > 0) {
+                widget.furnaceState.input!['count'] += toMove;
+                actuallyMoved = toMove;
+              }
+            } else if (widget.furnaceState.input == null && moveCount > 0) {
+              widget.furnaceState.input = {'type': type, 'count': moveCount};
+              actuallyMoved = moveCount;
+            }
+          } else if (label == 'Fuel') {
+            if (widget.furnaceState.fuel != null && widget.furnaceState.fuel!['type'] == type && widget.furnaceState.fuel!['count'] < 64) {
+              int space = 64 - (widget.furnaceState.fuel!['count'] as int);
+              int toMove = moveCount > space ? space : moveCount;
+              if (toMove > 0) {
+                widget.furnaceState.fuel!['count'] += toMove;
+                actuallyMoved = toMove;
+              }
+            } else if (widget.furnaceState.fuel == null && moveCount > 0) {
+              widget.furnaceState.fuel = {'type': type, 'count': moveCount};
+              actuallyMoved = moveCount;
+            }
+          }
+          if (actuallyMoved > 0) {
+            backpack[fromIdx]!['count'] -= actuallyMoved;
+            if (backpack[fromIdx]!['count'] <= 0) backpack[fromIdx] = null;
+            BackpackManager().save();
+          }
+          widget.onStateChanged();
+        } else {
+          onAccept(data);
+        }
+      },
     );
   }
 
   Widget _buildBackpackGrid() {
-    final backpack = BackpackManager().backpack;
-    return SizedBox(
-      height: 60,
-      child: GridView.builder(
-        shrinkWrap: true,
-        padding: EdgeInsets.zero,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 5,
-          mainAxisSpacing: 4,
-          crossAxisSpacing: 4,
-          childAspectRatio: 1,
-        ),
-        itemCount: 5,
-        itemBuilder: (context, index) {
-          final slot = backpack[index];
-          return DragTarget<Map<String, dynamic>>(
-            builder: (context, candidateData, rejectedData) {
-              return Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey, width: 2),
-                  color: slot != null ? Colors.black.withOpacity(0.15) : Colors.black.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: slot != null
-                    ? Draggable<Map<String, dynamic>>(
-                        data: {...slot, 'from': index},
-                        feedback: Material(
-                          color: Colors.transparent,
-                          child: Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.amber, width: 2),
-                              color: Colors.black.withOpacity(0.7),
-                              borderRadius: BorderRadius.circular(8),
+    return Consumer<BackpackManager>(
+      builder: (context, backpackManager, child) {
+        final backpack = backpackManager.backpack;
+        return SizedBox(
+          height: 60,
+          child: GridView.builder(
+            shrinkWrap: true,
+            padding: EdgeInsets.zero,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 5,
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+              childAspectRatio: 1,
+            ),
+            itemCount: 5,
+            itemBuilder: (context, index) {
+              final slot = backpack[index];
+              return DragTarget<Map<String, dynamic>>(
+                builder: (context, candidateData, rejectedData) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey, width: 2),
+                      color: slot != null ? Colors.black.withOpacity(0.15) : Colors.black.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: slot != null
+                        ? Draggable<Map<String, dynamic>>(
+                            data: {...slot, 'from': index},
+                            feedback: Material(
+                              color: Colors.transparent,
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.amber, width: 2),
+                                  color: Colors.black.withOpacity(0.7),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Center(child: ItemIcon(type: slot['type'], count: slot['count'])),
+                              ),
                             ),
+                            childWhenDragging: Container(),
                             child: Center(child: ItemIcon(type: slot['type'], count: slot['count'])),
-                          ),
-                        ),
-                        childWhenDragging: Container(),
-                        child: Center(child: ItemIcon(type: slot['type'], count: slot['count'])),
-                      )
-                    : null,
+                          )
+                        : null,
+                  );
+                },
+                onWillAccept: (data) => true,
+                onAccept: (data) {
+                  setState(() {
+                    // 1. Move item from backpack to furnace: move full stack, always remove from backpack if any are added to furnace
+                    if (data['from'] != null && data['slot'] != null) {
+                      int fromIdx = data['from'];
+                      int moveCount = backpack[fromIdx]?['count'] ?? 1;
+                      String type = backpack[fromIdx]?['type'];
+                      int actuallyMoved = 0;
+                      if (data['slot'] == 'input') {
+                        if (widget.furnaceState.input != null && widget.furnaceState.input!['type'] == type && widget.furnaceState.input!['count'] < 64) {
+                          int space = 64 - (widget.furnaceState.input!['count'] as int);
+                          int toMove = moveCount > space ? space : moveCount;
+                          if (toMove > 0) {
+                            widget.furnaceState.input!['count'] += toMove;
+                            actuallyMoved = toMove;
+                          }
+                        } else if (widget.furnaceState.input == null && moveCount > 0) {
+                          widget.furnaceState.input = {'type': type, 'count': moveCount};
+                          actuallyMoved = moveCount;
+                        }
+                      } else if (data['slot'] == 'fuel') {
+                        if (widget.furnaceState.fuel != null && widget.furnaceState.fuel!['type'] == type && widget.furnaceState.fuel!['count'] < 64) {
+                          int space = 64 - (widget.furnaceState.fuel!['count'] as int);
+                          int toMove = moveCount > space ? space : moveCount;
+                          if (toMove > 0) {
+                            widget.furnaceState.fuel!['count'] += toMove;
+                            actuallyMoved = toMove;
+                          }
+                        } else if (widget.furnaceState.fuel == null && moveCount > 0) {
+                          widget.furnaceState.fuel = {'type': type, 'count': moveCount};
+                          actuallyMoved = moveCount;
+                        }
+                      }
+                      // Always remove from backpack if any were moved
+                      if (actuallyMoved > 0) {
+                        backpack[fromIdx]!['count'] -= actuallyMoved;
+                        if (backpack[fromIdx]!['count'] <= 0) backpack[fromIdx] = null;
+                        backpackManager.save();
+                      }
+                    }
+                    // 2. Move item from furnace (input/fuel) to backpack: move full stack
+                    else if (data['type'] != null && data['count'] != null && data['slot'] != null) {
+                      String type = data['type'];
+                      int moveCount = data['count'];
+                      // Try to stack into backpack slot if same type
+                      if (slot != null && slot['type'] == type && slot['count'] < 64) {
+                        int space = 64 - (slot['count'] as int);
+                        int toMove = moveCount > space ? space : moveCount;
+                        slot['count'] += toMove;
+                        if (data['slot'] == 'input' && widget.furnaceState.input != null) {
+                          widget.furnaceState.input!['count'] -= toMove;
+                          if (widget.furnaceState.input!['count'] <= 0) widget.furnaceState.input = null;
+                        } else if (data['slot'] == 'fuel' && widget.furnaceState.fuel != null) {
+                          widget.furnaceState.fuel!['count'] -= toMove;
+                          if (widget.furnaceState.fuel!['count'] <= 0) widget.furnaceState.fuel = null;
+                        }
+                      } else if (slot == null) {
+                        backpack[index] = {'type': type, 'count': moveCount};
+                        if (data['slot'] == 'input' && widget.furnaceState.input != null) {
+                          widget.furnaceState.input = null;
+                        } else if (data['slot'] == 'fuel' && widget.furnaceState.fuel != null) {
+                          widget.furnaceState.fuel = null;
+                        }
+                      }
+                      backpackManager.save();
+                    }
+                    // 3. Move item from output slot to backpack: add all to backpack and clear output
+                    else if (data['slot'] == 'output' && data['type'] != null && data['count'] != null) {
+                      String type = data['type'];
+                      int moveCount = data['count'];
+                      if (slot != null && slot['type'] == type && slot['count'] < 64) {
+                        int space = 64 - (slot['count'] as int);
+                        int toMove = moveCount > space ? space : moveCount;
+                        slot['count'] += toMove;
+                        if (widget.furnaceState.output != null) {
+                          widget.furnaceState.output!['count'] -= toMove;
+                          if (widget.furnaceState.output!['count'] <= 0) widget.furnaceState.output = null;
+                        }
+                      } else if (slot == null) {
+                        backpack[index] = {'type': type, 'count': moveCount};
+                        widget.furnaceState.output = null;
+                      }
+                      backpackManager.save();
+                    }
+                    // 4. Move item within backpack
+                    else if (data['from'] != null) {
+                      backpackManager.moveItem(data['from'], index);
+                    }
+                    widget.onStateChanged();
+                  });
+                },
               );
             },
-            onWillAccept: (data) => true,
-            onAccept: (data) {
-              setState(() {
-                // 1. Move item from backpack to furnace: decrement backpack count
-                if (data['from'] != null && data['slot'] != null) {
-                  int fromIdx = data['from'];
-                  int moveCount = data['count'] ?? 1;
-                  if (backpack[fromIdx] != null) {
-                    backpack[fromIdx]!['count'] -= moveCount;
-                    if (backpack[fromIdx]!['count'] <= 0) backpack[fromIdx] = null;
-                    BackpackManager().save();
-                  }
-                }
-                // 2. Move item from furnace (input/fuel) to backpack: add item back and clear slot
-                else if (data['type'] != null && data['count'] != null && data['slot'] != null) {
-                  BackpackManager().addItem(data['type']);
-                  if (data['slot'] == 'input' && widget.furnaceState.input != null) {
-                    widget.furnaceState.input = null;
-                  } else if (data['slot'] == 'fuel' && widget.furnaceState.fuel != null) {
-                    widget.furnaceState.fuel = null;
-                  }
-                }
-                // 3. Move item from output slot to backpack: add 1 to backpack and decrement output
-                else if (data['slot'] == 'output' && data['type'] != null && data['count'] != null) {
-                  BackpackManager().addItem(data['type']);
-                  if (widget.furnaceState.output != null && widget.furnaceState.output!['count'] > 1) {
-                    widget.furnaceState.output!['count'] -= 1;
-                  } else {
-                    widget.furnaceState.output = null;
-                  }
-                }
-                // 4. Move item within backpack
-                else if (data['from'] != null) {
-                  BackpackManager().moveItem(data['from'], index);
-                }
-                widget.onStateChanged();
-              });
-            },
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }

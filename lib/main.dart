@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:math';
@@ -42,7 +43,7 @@ class Mine {
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  runApp(const OreMinerApp());
+  runApp(OreMinerApp());
 }
 
 class OreMinerApp extends StatelessWidget {
@@ -50,10 +51,13 @@ class OreMinerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Ore Miner Deluxe',
-      theme: ThemeData.dark(),
-      home: const HomePage(),
+    return ChangeNotifierProvider<BackpackManager>.value(
+      value: BackpackManager(),
+      child: MaterialApp(
+        title: 'Ore Miner Deluxe',
+        theme: ThemeData.dark(),
+        home: const HomePage(),
+      ),
     );
   }
 }
@@ -198,28 +202,6 @@ class _HomePageState extends State<HomePage> {
         silverCoins = prefs.getInt('silverCoins') ?? 0;
         goldCoins = prefs.getInt('goldCoins') ?? 0;
       });
-      // Load backpack
-      final backpackStr = prefs.getString('backpack');
-      if (backpackStr != null && backpackStr.isNotEmpty) {
-        try {
-          final decoded = jsonDecode(backpackStr) as List;
-          for (int i = 0; i < BackpackManager().backpack.length && i < decoded.length; i++) {
-            if (decoded[i] != null) {
-              BackpackManager().backpack[i] = Map<String, dynamic>.from(decoded[i] as Map);
-            } else {
-              BackpackManager().backpack[i] = null;
-            }
-          }
-        } catch (_) {
-          for (int i = 0; i < BackpackManager().backpack.length; i++) {
-            BackpackManager().backpack[i] = null;
-          }
-        }
-      } else {
-        for (int i = 0; i < BackpackManager().backpack.length; i++) {
-          BackpackManager().backpack[i] = null;
-        }
-      }
       // Load last entered mine (as JSON object)
       final lastMine = prefs.getString('lastMine');
       if (lastMine != null && lastMine.isNotEmpty) {
@@ -277,13 +259,12 @@ class _HomePageState extends State<HomePage> {
     await prefs.setInt('copperCoins', copperCoins);
     await prefs.setInt('silverCoins', silverCoins);
     await prefs.setInt('goldCoins', goldCoins);
-    // Save backpack as JSON string
-    final encoded = BackpackManager().backpack.map((slot) => slot == null ? null : Map<String, dynamic>.from(slot)).toList();
-    await prefs.setString('backpack', jsonEncode(encoded));
     // Save last entered mine if any
     if (hasEnteredMine && currentMine != null) {
       await prefs.setString('lastMine', jsonEncode(currentMine!.toJson()));
     }
+    // Save backpack using BackpackManager
+    await BackpackManager().save();
   }
 
 
@@ -856,97 +837,98 @@ class _HomePageState extends State<HomePage> {
                   children: [
                     const Text('Backpack', style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
-                    SizedBox(
-                      height: 60,
-                      child: ClipRect(
-                        child: GridView.builder(
-                          shrinkWrap: true,
-                          padding: EdgeInsets.zero,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 5,
-                            mainAxisSpacing: 4,
-                            crossAxisSpacing: 4,
-                            childAspectRatio: 1,
-                          ),
-                          itemCount: 5,
-                          itemBuilder: (context, index) {
-                            final slot = BackpackManager().backpack[index];
-                            return DragTarget<Map<String, dynamic>>(
-                              builder: (context, candidateData, rejectedData) {
-                                return slot != null
-                                    ? Draggable<Map<String, dynamic>>(
-                                        data: {...slot, 'from': index},
-                                        feedback: Material(
-                                          color: Colors.transparent,
-                                          child: Container(
-                                            width: 48,
-                                            height: 48,
+                    Consumer<BackpackManager>(
+                      builder: (context, backpackManager, child) {
+                        final backpack = backpackManager.backpack;
+                        return SizedBox(
+                          height: 60,
+                          child: ClipRect(
+                            child: GridView.builder(
+                              shrinkWrap: true,
+                              padding: EdgeInsets.zero,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 5,
+                                mainAxisSpacing: 4,
+                                crossAxisSpacing: 4,
+                                childAspectRatio: 1,
+                              ),
+                              itemCount: 5,
+                              itemBuilder: (context, index) {
+                                final slot = backpack[index];
+                                return DragTarget<Map<String, dynamic>>(
+                                  builder: (context, candidateData, rejectedData) {
+                                    return slot != null
+                                        ? Draggable<Map<String, dynamic>>(
+                                            data: {...slot, 'from': index},
+                                            feedback: Material(
+                                              color: Colors.transparent,
+                                              child: Container(
+                                                width: 48,
+                                                height: 48,
+                                                decoration: BoxDecoration(
+                                                  border: Border.all(color: Colors.amber, width: 2),
+                                                  color: Colors.black.withOpacity(0.7),
+                                                  borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: Row(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    SvgPicture.asset(_oreAsset(slot['type']), width: 20, height: 20),
+                                                    const SizedBox(width: 4),
+                                                    Text('${slot['count']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            childWhenDragging: Container(
+                                              decoration: BoxDecoration(
+                                                border: Border.all(color: Colors.grey, width: 2),
+                                                color: Colors.black.withOpacity(0.05),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                            onDragCompleted: () {},
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                border: Border.all(color: Colors.grey, width: 2),
+                                                color: Colors.black.withOpacity(0.15),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              alignment: Alignment.center,
+                                              child: Row(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  SvgPicture.asset(_oreAsset(slot['type']), width: 20, height: 20),
+                                                  const SizedBox(width: 4),
+                                                  Text('${slot['count']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black)),
+                                                ],
+                                              ),
+                                            ),
+                                          )
+                                        : Container(
                                             decoration: BoxDecoration(
-                                              border: Border.all(color: Colors.amber, width: 2),
-                                              color: Colors.black.withOpacity(0.7),
+                                              border: Border.all(color: Colors.grey, width: 2),
+                                              color: Colors.black.withOpacity(0.05),
                                               borderRadius: BorderRadius.circular(8),
                                             ),
-                                            child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                SvgPicture.asset(_oreAsset(slot['type']), width: 20, height: 20),
-                                                const SizedBox(width: 4),
-                                                Text('${slot['count']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        childWhenDragging: Container(
-                                          decoration: BoxDecoration(
-                                            border: Border.all(color: Colors.grey, width: 2),
-                                            color: Colors.black.withOpacity(0.05),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                        ),
-                                        onDragCompleted: () {},
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            border: Border.all(color: Colors.grey, width: 2),
-                                            color: Colors.black.withOpacity(0.15),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          alignment: Alignment.center,
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              SvgPicture.asset(_oreAsset(slot['type']), width: 20, height: 20),
-                                              const SizedBox(width: 4),
-                                              Text('${slot['count']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black)),
-                                            ],
-                                          ),
-                                        ),
-                                      )
-                                    : Container(
-                                        decoration: BoxDecoration(
-                                          border: Border.all(color: Colors.grey, width: 2),
-                                          color: Colors.black.withOpacity(0.05),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                      );
+                                          );
+                                  },
+                                  onWillAccept: (data) {
+                                    // Accept any item for any slot
+                                    return data != null;
+                                  },
+                                  onAccept: (data) {
+                                    backpackManager.moveItem(data['from'] as int, index);
+                                  },
+                                );
                               },
-                              onWillAccept: (data) {
-                                // Accept any item for any slot
-                                return data != null;
-                              },
-                              onAccept: (data) {
-                                setState(() {
-                                  int from = data['from'] as int;
-                                  int to = index;
-                                  BackpackManager().moveItem(from, to);
-                                });
-                              },
-                            );
-                          },
-                        ),
-                      ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -954,110 +936,123 @@ class _HomePageState extends State<HomePage> {
               // Bottom: action buttons always at bottom, prevent overflow
               Padding(
                 padding: const EdgeInsets.only(top: 8.0),
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            // TODO: Implement Craft modal
-                          },
-                          icon: const Icon(Icons.handyman),
-                          label: const Text('Craft'),
-                          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              // TODO: Implement Craft modal
+                            },
+                            icon: const Icon(Icons.handyman),
+                            label: const Text('Craft'),
+                            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                          ),
                         ),
-                        const SizedBox(width: 16),
-                        ElevatedButton.icon(
-                          onPressed: _openFurnace,
-                          icon: const Icon(Icons.local_fire_department),
-                          label: const Text('Furnace'),
-                          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _openChest,
+                            icon: const Icon(Icons.inventory),
+                            label: const Text('Chest'),
+                            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                          ),
                         ),
-                        const SizedBox(width: 16),
-                        ElevatedButton.icon(
-                          onPressed: _openChest,
-                          icon: const Icon(Icons.inventory),
-                          label: const Text('Chest'),
-                          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
-                        ),
-                        const SizedBox(width: 16),
-                        ElevatedButton.icon(
-                          onPressed: () async {
-                            // Always update state after returning from MinePage
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => MinePage(
-                                  hammerfells: hammerfells,
-                                  miningChances: {
-                                    'iron': ironMineChance,
-                                    'copper': copperMineChance,
-                                    'gold': goldMineChance,
-                                    'diamond': diamondMineChance,
-                                  },
-                                  onMine: (ore) async {
-                                    bool success = false;
-                                    if (ore == 'iron') {
-                                      success = await mineIronOre();
-                                    } else if (ore == 'copper') {
-                                      success = await mineCopperOre();
-                                    } else if (ore == 'gold') {
-                                      success = await mineGoldOre();
-                                    } else if (ore == 'diamond') {
-                                      success = await mineDiamond();
-                                    } else if (ore == 'stone') {
-                                      if (hammerfells >= miningCost) {
-                                        setState(() {
-                                          hammerfells -= miningCost;
-                                          stone++;
-                                          _saveGame();
-                                        });
-                                        success = true;
-                                      }
-                                    } else if (ore == 'coal') {
-                                      if (hammerfells >= miningCost) {
-                                        setState(() {
-                                          hammerfells -= miningCost;
-                                          coal++;
-                                          _saveGame();
-                                        });
-                                        success = true;
-                                      }
-                                    }
-                                    _pulseRow(ore, success);
-                                    return success;
-                                  },
-                                  onOpenFurnace: _openFurnace,
-                                  mineOreChances: mineOreChances,
-                                  pickOreForMine: (mineType) => pickOreForMine(mineOreChances, _rng, mineType),
-                                ),
-                              ),
-                            );
-                            setState(() {}); // Refresh state after returning
-                          },
-                          icon: const Icon(Icons.construction),
-                          label: const Text('Mine'),
-                          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
-                        ),
-                        const SizedBox(width: 16),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const ForestPage()),
-                            );
-                          },
-                          icon: const Icon(Icons.park),
-                          label: const Text('Forest'),
-                          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _openFurnace,
+                            icon: const Icon(Icons.local_fire_department),
+                            label: const Text('Furnace'),
+                            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                          ),
                         ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              // Always update state after returning from MinePage
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => MinePage(
+                                    hammerfells: hammerfells,
+                                    miningChances: {
+                                      'iron': ironMineChance,
+                                      'copper': copperMineChance,
+                                      'gold': goldMineChance,
+                                      'diamond': diamondMineChance,
+                                    },
+                                    onMine: (ore) async {
+                                      bool success = false;
+                                      if (ore == 'iron') {
+                                        success = await mineIronOre();
+                                      } else if (ore == 'copper') {
+                                        success = await mineCopperOre();
+                                      } else if (ore == 'gold') {
+                                        success = await mineGoldOre();
+                                      } else if (ore == 'diamond') {
+                                        success = await mineDiamond();
+                                      } else if (ore == 'stone') {
+                                        if (hammerfells >= miningCost) {
+                                          setState(() {
+                                            hammerfells -= miningCost;
+                                            stone++;
+                                            _saveGame();
+                                          });
+                                          success = true;
+                                        }
+                                      } else if (ore == 'coal') {
+                                        if (hammerfells >= miningCost) {
+                                          setState(() {
+                                            hammerfells -= miningCost;
+                                            coal++;
+                                            _saveGame();
+                                          });
+                                          success = true;
+                                        }
+                                      }
+                                      _pulseRow(ore, success);
+                                      return success;
+                                    },
+                                    onOpenFurnace: _openFurnace,
+                                    mineOreChances: mineOreChances,
+                                    pickOreForMine: (mineType) => pickOreForMine(mineOreChances, _rng, mineType),
+                                  ),
+                                ),
+                              );
+                              setState(() {}); // Refresh state after returning
+                            },
+                            icon: const Icon(Icons.construction),
+                            label: const Text('Mine'),
+                            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const ForestPage()),
+                              );
+                            },
+                            icon: const Icon(Icons.park),
+                            label: const Text('Forest'),
+                            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],

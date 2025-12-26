@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/backpack_manager.dart';
+import 'package:provider/provider.dart';
 import 'item_icon.dart';
 
 class ChestManager {
@@ -107,24 +108,43 @@ class _ChestWidgetState extends State<ChestWidget> {
             onWillAccept: (data) => true,
             onAccept: (data) {
               setState(() {
-                // 1. Move item within chest
+                // 1. Move item within chest (merge if same type, else swap)
                 if (data['fromChest'] != null) {
-                  ChestManager().moveItem(data['fromChest'], index);
+                  int fromIdx = data['fromChest'];
+                  if (fromIdx == index) return;
+                  final chest = ChestManager().chest;
+                  final fromSlot = chest[fromIdx];
+                  final toSlot = chest[index];
+                  if (fromSlot != null && toSlot != null && fromSlot['type'] == toSlot['type'] && toSlot['count'] < 64) {
+                    int space = 64 - (toSlot['count'] as int);
+                    int toMove = fromSlot['count'] > space ? space : fromSlot['count'];
+                    toSlot['count'] += toMove;
+                    fromSlot['count'] -= toMove;
+                    if (fromSlot['count'] <= 0) chest[fromIdx] = null;
+                  } else {
+                    ChestManager().moveItem(fromIdx, index);
+                  }
                 }
-                // 2. Move from backpack to chest
+                // 2. Move from backpack to chest (merge if same type, else fill empty)
                 else if (data['from'] != null) {
                   final backpack = BackpackManager().backpack;
                   int fromIdx = data['from'];
                   if (backpack[fromIdx] != null) {
-                    ChestManager().addItem(backpack[fromIdx]!['type']);
-                    backpack[fromIdx]!['count'] -= 1;
-                    if (backpack[fromIdx]!['count'] <= 0) backpack[fromIdx] = null;
+                    int moveCount = backpack[fromIdx]!['count'] ?? 1;
+                    String type = backpack[fromIdx]!['type'];
+                    // Try to stack into chest slot if same type
+                    if (slot != null && slot['type'] == type && slot['count'] < 64) {
+                      int space = 64 - (slot['count'] as int);
+                      int toMove = moveCount > space ? space : moveCount;
+                      slot['count'] += toMove;
+                      backpack[fromIdx]!['count'] -= toMove;
+                      if (backpack[fromIdx]!['count'] <= 0) backpack[fromIdx] = null;
+                    } else if (slot == null) {
+                      chest[index] = {'type': type, 'count': moveCount};
+                      backpack[fromIdx] = null;
+                    }
                     BackpackManager().save();
                   }
-                }
-                // 3. Move from chest to backpack
-                else if (data['fromChest'] != null) {
-                  // handled above
                 }
                 setState(() {});
               });
@@ -136,75 +156,90 @@ class _ChestWidgetState extends State<ChestWidget> {
   }
 
   Widget _buildBackpackGrid() {
-    final backpack = BackpackManager().backpack;
-    return SizedBox(
-      height: 60,
-      child: GridView.builder(
-        shrinkWrap: true,
-        padding: EdgeInsets.zero,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 5,
-          mainAxisSpacing: 4,
-          crossAxisSpacing: 4,
-          childAspectRatio: 1,
-        ),
-        itemCount: 5,
-        itemBuilder: (context, index) {
-          final slot = backpack[index];
-          return DragTarget<Map<String, dynamic>>(
-            builder: (context, candidateData, rejectedData) {
-              return Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey, width: 2),
-                  color: slot != null ? Colors.black.withOpacity(0.15) : Colors.black.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: slot != null
-                    ? Draggable<Map<String, dynamic>>(
-                        data: {...slot, 'from': index},
-                        feedback: Material(
-                          color: Colors.transparent,
-                          child: Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.amber, width: 2),
-                              color: Colors.black.withOpacity(0.7),
-                              borderRadius: BorderRadius.circular(8),
+    return Consumer<BackpackManager>(
+      builder: (context, backpackManager, child) {
+        final backpack = backpackManager.backpack;
+        return SizedBox(
+          height: 60,
+          child: GridView.builder(
+            shrinkWrap: true,
+            padding: EdgeInsets.zero,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 5,
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+              childAspectRatio: 1,
+            ),
+            itemCount: 5,
+            itemBuilder: (context, index) {
+              final slot = backpack[index];
+              return DragTarget<Map<String, dynamic>>(
+                builder: (context, candidateData, rejectedData) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey, width: 2),
+                      color: slot != null ? Colors.black.withOpacity(0.15) : Colors.black.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: slot != null
+                        ? Draggable<Map<String, dynamic>>(
+                            data: {...slot, 'from': index},
+                            feedback: Material(
+                              color: Colors.transparent,
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.amber, width: 2),
+                                  color: Colors.black.withOpacity(0.7),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Center(child: ItemIcon(type: slot['type'], count: slot['count'])),
+                              ),
                             ),
+                            childWhenDragging: Container(),
                             child: Center(child: ItemIcon(type: slot['type'], count: slot['count'])),
-                          ),
-                        ),
-                        childWhenDragging: Container(),
-                        child: Center(child: ItemIcon(type: slot['type'], count: slot['count'])),
-                      )
-                    : null,
+                          )
+                        : null,
+                  );
+                },
+                onWillAccept: (data) => true,
+                onAccept: (data) {
+                  setState(() {
+                    // 1. Move item within backpack
+                    if (data['from'] != null) {
+                      backpackManager.moveItem(data['from'], index);
+                    }
+                    // 2. Move from chest to backpack (move full stack)
+                    else if (data['fromChest'] != null) {
+                      final chest = ChestManager().chest;
+                      int fromIdx = data['fromChest'];
+                      if (chest[fromIdx] != null) {
+                        int moveCount = chest[fromIdx]!['count'] ?? 1;
+                        String type = chest[fromIdx]!['type'];
+                        // Try to stack into backpack slot if same type
+                        if (slot != null && slot['type'] == type && slot['count'] < 64) {
+                          int space = 64 - (slot['count'] as int);
+                          int toMove = moveCount > space ? space : moveCount;
+                          slot['count'] += toMove;
+                          chest[fromIdx]!['count'] -= toMove;
+                          if (chest[fromIdx]!['count'] <= 0) chest[fromIdx] = null;
+                          BackpackManager().save();
+                        } else if (slot == null) {
+                          backpack[index] = {'type': type, 'count': moveCount};
+                          chest[fromIdx] = null;
+                          BackpackManager().save();
+                        }
+                      }
+                    }
+                  });
+                },
               );
             },
-            onWillAccept: (data) => true,
-            onAccept: (data) {
-              setState(() {
-                // 1. Move item within backpack
-                if (data['from'] != null) {
-                  BackpackManager().moveItem(data['from'], index);
-                }
-                // 2. Move from chest to backpack
-                else if (data['fromChest'] != null) {
-                  final chest = ChestManager().chest;
-                  int fromIdx = data['fromChest'];
-                  if (chest[fromIdx] != null) {
-                    BackpackManager().addItem(chest[fromIdx]!['type']);
-                    chest[fromIdx]!['count'] -= 1;
-                    if (chest[fromIdx]!['count'] <= 0) chest[fromIdx] = null;
-                  }
-                }
-                setState(() {});
-              });
-            },
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }
