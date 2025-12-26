@@ -77,7 +77,7 @@ class _MineModalState extends State<MineModal> with TickerProviderStateMixin {
 		);
 
 		return ListTile(
-			leading: SvgPicture.asset(svgAsset, width: 28, height: 28, colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.onSurface, BlendMode.srcIn)),
+			leading: Image.asset(svgAsset.replaceAll('.svg', '.png'), width: 28, height: 28, color: Theme.of(context).colorScheme.onSurface),
 			title: Text(label),
 			subtitle: Text('1 H • $chancePct% chance'),
 			trailing: canMine
@@ -149,10 +149,11 @@ class _MineModalState extends State<MineModal> with TickerProviderStateMixin {
 													Expanded(
 														child: ListView(
 															children: [
-																_mineTile(context, 'Iron Ore', 2, 'iron', 'assets/images/iron_ore.svg'),
-																_mineTile(context, 'Copper Ore', 1, 'copper', 'assets/images/copper_ore.svg'),
-																_mineTile(context, 'Gold Ore', 5, 'gold', 'assets/images/gold_ore.svg'),
-																_mineTile(context, 'Diamond', 10, 'diamond', 'assets/images/diamond.svg'),
+																_mineTile(context, 'Iron Ore', 2, 'iron', 'assets/images/iron_ore.png'),
+																	_mineTile(context, 'Iron Ore', 2, 'iron', 'assets/images/iron_ore.png'),
+																_mineTile(context, 'Copper Ore', 1, 'copper', 'assets/images/copper_ore.png'),
+																_mineTile(context, 'Gold Ore', 5, 'gold', 'assets/images/gold_ore.png'),
+																_mineTile(context, 'Diamond', 10, 'diamond', 'assets/images/diamond.png'),
 															],
 														),
 													),

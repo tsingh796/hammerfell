@@ -18,25 +18,27 @@ class ItemIcon extends StatelessWidget {
     switch (type) {
       case 'iron':
       case 'iron_ore':
-        return 'assets/images/iron_ore.svg';
+        return 'assets/images/iron_ore.png';
       case 'copper':
       case 'copper_ore':
-        return 'assets/images/copper_ore.svg';
+        return 'assets/images/copper_ore.png';
       case 'gold':
       case 'gold_ore':
-        return 'assets/images/gold_ore.svg';
+        return 'assets/images/gold_ore.png';
+      case 'diamond':
+        return 'assets/images/diamond.png';
       case 'coal':
-        return 'assets/images/coal.svg';
+        return 'assets/images/coal.png';
       case 'stone':
-        return 'assets/images/stone.svg';
+        return 'assets/images/stone.png';
       case 'copper_ingot':
-        return 'assets/images/copper_ingot.svg';
+        return 'assets/images/copper_ingot.png';
       case 'iron_ingot':
-        return 'assets/images/iron_ingot.svg';
+        return 'assets/images/iron_ingot.png';
       case 'gold_ingot':
-        return 'assets/images/gold_ingot.svg';
+        return 'assets/images/gold_ingot.png';
       default:
-        return 'assets/images/unknown_ore.svg';
+        return 'assets/images/unknown_ore.png';
     }
   }
 
@@ -48,9 +50,7 @@ class ItemIcon extends StatelessWidget {
         SizedBox(
           width: size,
           height: size,
-          child: asset.endsWith('.svg')
-              ? SvgPicture.asset(asset, fit: BoxFit.contain)
-              : const Icon(Icons.help_outline),
+            child: Image.asset(asset, fit: BoxFit.contain),
         ),
         if (showCount)
           Text('$count', style: const TextStyle(fontSize: 10)),

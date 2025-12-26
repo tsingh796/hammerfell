@@ -86,30 +86,31 @@ class _HomePageState extends State<HomePage> {
       );
     }
   void resetDebug10() {
-        setState(() {
-          hammerfells = 50;
-          ironOre = 10;
-          copperOre = 10;
-          goldOre = 10;
-          diamond = 10;
-          coal = 10;
-          stone = 10;
-          ironIngot = 10;
-          copperIngot = 10;
-          goldIngot = 10;
-          copperCoins = 10;
-          silverCoins = 10;
-          goldCoins = 10;
-          // Reset backpack to 10 of each for demo
-          for (int i = 0; i < BackpackManager().backpack.length; i++) {
-            BackpackManager().backpack[i] = null;
-          }
-          BackpackManager().backpack[0] = {'type': 'coal', 'count': 10};
-          BackpackManager().backpack[1] = {'type': 'iron', 'count': 10};
-          BackpackManager().save();
-          _saveGame();
-        });
+    setState(() {
+      hammerfells = 50;
+      ironOre = 10;
+      copperOre = 10;
+      goldOre = 10;
+      diamond = 10;
+      coal = 10;
+      stone = 10;
+      ironIngot = 10;
+      copperIngot = 10;
+      goldIngot = 10;
+      copperCoins = 10;
+      silverCoins = 10;
+      goldCoins = 10;
+      // Reset backpack to 10 of each for demo
+      for (int i = 0; i < BackpackManager().backpack.length; i++) {
+        BackpackManager().backpack[i] = null;
       }
+      BackpackManager().backpack[0] = {'type': 'coal', 'count': 10};
+      BackpackManager().backpack[1] = {'type': 'iron', 'count': 10};
+      BackpackManager().notifyListeners();
+      BackpackManager().save();
+      _saveGame();
+    });
+  }
     FurnaceState? _homeFurnaceState;
   // Backpack inventory: Each slot is {'type': oreType, 'count': int}
   // Use global backpack singleton
@@ -119,21 +120,21 @@ class _HomePageState extends State<HomePage> {
     switch (oreType) {
       case 'iron':
       case 'iron_ore':
-        return 'assets/images/iron_ore.svg';
+        return 'assets/images/iron_ore.png';
       case 'copper':
       case 'copper_ore':
-        return 'assets/images/copper_ore.svg';
+        return 'assets/images/copper_ore.png';
       case 'gold':
       case 'gold_ore':
-        return 'assets/images/gold_ore.svg';
+        return 'assets/images/gold_ore.png';
       case 'diamond':
-        return 'assets/images/diamond.svg';
+        return 'assets/images/diamond.png';
       case 'stone':
-        return 'assets/images/stone.svg';
+        return 'assets/images/stone.png';
       case 'coal':
-        return 'assets/images/coal.svg';
+        return 'assets/images/coal.png';
       default:
-        return 'assets/images/unknown_ore.svg';
+        return 'assets/images/unknown_ore.png';
     }
   }
 
@@ -407,20 +408,20 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  Widget coinIcon(String asset) => SvgPicture.asset(asset, width: 20, height: 20);
+  Widget coinIcon(String asset) => Image.asset(asset, width: 20, height: 20);
 
   Widget _buildCoinRow() {
     return Row(
       children: [
-        coinIcon('assets/images/copper_coin.svg'),
+        coinIcon('assets/images/copper_coin.png'),
         const SizedBox(width: 4),
         Text('$copperCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(width: 12),
-        coinIcon('assets/images/silver_coin.svg'),
+        coinIcon('assets/images/silver_coin.png'),
         const SizedBox(width: 4),
         Text('$silverCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(width: 12),
-        coinIcon('assets/images/gold_coin.svg'),
+        coinIcon('assets/images/gold_coin.png'),
         const SizedBox(width: 4),
         Text('$goldCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
       ],
@@ -444,7 +445,7 @@ class _HomePageState extends State<HomePage> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
-              SvgPicture.asset(assetPath, width: 20, height: 20),
+              Image.asset(assetPath, width: 20, height: 20),
               const SizedBox(width: 10),
               Text('$label: $count', style: TextStyle(color: readableTextColor(color), fontWeight: FontWeight.w600)),
             ],
@@ -689,15 +690,15 @@ class _HomePageState extends State<HomePage> {
                   // Coins (right)
                   Row(
                     children: [
-                      coinIcon('assets/images/copper_coin.svg'),
+                      coinIcon('assets/images/copper_coin.png'),
                       const SizedBox(width: 4),
                       Text('$copperCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(width: 12),
-                      coinIcon('assets/images/silver_coin.svg'),
+                      coinIcon('assets/images/silver_coin.png'),
                       const SizedBox(width: 4),
                       Text('$silverCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(width: 12),
-                      coinIcon('assets/images/gold_coin.svg'),
+                      coinIcon('assets/images/gold_coin.png'),
                       const SizedBox(width: 4),
                       Text('$goldCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
                     ],
@@ -724,10 +725,10 @@ class _HomePageState extends State<HomePage> {
                         itemBuilder: (context, index) {
                           // Order: iron, copper, gold, diamond, (empty)
                           final ores = [
-                            {'name': 'Iron Ore', 'count': ironOre, 'asset': 'assets/images/iron_ore.svg'},
-                            {'name': 'Copper Ore', 'count': copperOre, 'asset': 'assets/images/copper_ore.svg'},
-                            {'name': 'Gold Ore', 'count': goldOre, 'asset': 'assets/images/gold_ore.svg'},
-                            {'name': 'Diamond', 'count': diamond, 'asset': 'assets/images/diamond.svg'},
+                            {'name': 'Iron Ore', 'count': ironOre, 'asset': 'assets/images/iron_ore.png'},
+                            {'name': 'Copper Ore', 'count': copperOre, 'asset': 'assets/images/copper_ore.png'},
+                            {'name': 'Gold Ore', 'count': goldOre, 'asset': 'assets/images/gold_ore.png'},
+                            {'name': 'Diamond', 'count': diamond, 'asset': 'assets/images/diamond.png'},
                           ];
                           if (index < ores.length) {
                             final ore = ores[index];
@@ -741,7 +742,7 @@ class _HomePageState extends State<HomePage> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  SvgPicture.asset(ore['asset'] as String, width: 32, height: 32),
+                                  Image.asset(ore['asset'] as String, width: 32, height: 32),
                                   const SizedBox(height: 4),
                                   Text('${ore['count']}', style: const TextStyle(fontWeight: FontWeight.bold)),
                                 ],
@@ -790,9 +791,9 @@ class _HomePageState extends State<HomePage> {
                         itemBuilder: (context, index) {
                           // Order: iron, copper, gold, (empty, empty)
                           final ingots = [
-                            {'name': 'Iron Ingot', 'count': ironIngot, 'asset': 'assets/images/iron_ingot.svg'},
-                            {'name': 'Copper Ingot', 'count': copperIngot, 'asset': 'assets/images/copper_ingot.svg'},
-                            {'name': 'Gold Ingot', 'count': goldIngot, 'asset': 'assets/images/gold_ingot.svg'},
+                            {'name': 'Iron Ingot', 'count': ironIngot, 'asset': 'assets/images/iron_ingot.png'},
+                            {'name': 'Copper Ingot', 'count': copperIngot, 'asset': 'assets/images/copper_ingot.png'},
+                            {'name': 'Gold Ingot', 'count': goldIngot, 'asset': 'assets/images/gold_ingot.png'},
                           ];
                           if (index < ingots.length) {
                             final ingot = ingots[index];
@@ -806,7 +807,7 @@ class _HomePageState extends State<HomePage> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  SvgPicture.asset(ingot['asset'] as String, width: 32, height: 32),
+                                  Image.asset(ingot['asset'] as String, width: 32, height: 32),
                                   const SizedBox(height: 4),
                                   Text('${ingot['count']}', style: const TextStyle(fontWeight: FontWeight.bold)),
                                 ],
@@ -875,7 +876,7 @@ class _HomePageState extends State<HomePage> {
                                                   mainAxisAlignment: MainAxisAlignment.center,
                                                   mainAxisSize: MainAxisSize.min,
                                                   children: [
-                                                    SvgPicture.asset(_oreAsset(slot['type']), width: 20, height: 20),
+                                                    Image.asset(_oreAsset(slot['type']), width: 20, height: 20),
                                                     const SizedBox(width: 4),
                                                     Text('${slot['count']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
                                                   ],
@@ -901,7 +902,7 @@ class _HomePageState extends State<HomePage> {
                                                 mainAxisAlignment: MainAxisAlignment.center,
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  SvgPicture.asset(_oreAsset(slot['type']), width: 20, height: 20),
+                                                    Image.asset(_oreAsset(slot['type']), width: 20, height: 20),
                                                   const SizedBox(width: 4),
                                                   Text('${slot['count']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black)),
                                                 ],

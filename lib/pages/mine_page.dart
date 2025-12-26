@@ -142,24 +142,24 @@ class _MinePageState extends State<MinePage> {
   String _oreAsset(String ore) {
     switch (ore) {
       case 'iron':
-        return 'assets/images/iron_ore.svg';
+        return 'assets/images/iron_ore.png';
       case 'copper':
-        return 'assets/images/copper_ore.svg';
+        return 'assets/images/copper_ore.png';
       case 'gold':
-        return 'assets/images/gold_ore.svg';
+        return 'assets/images/gold_ore.png';
       case 'diamond':
-        return 'assets/images/diamond.svg';
+        return 'assets/images/diamond.png';
       default:
-        return 'assets/images/stone.svg';
+        return 'assets/images/stone.png';
     }
   }
 
   // Cracking overlay asset for animation (2 steps)
   String _crackAsset(int step, String ore) {
     if (step == 1) {
-      return 'assets/images/crack1.svg';
+      return 'assets/images/crack1.png';
     } else if (step == 2) {
-      return 'assets/images/crack2.svg';
+      return 'assets/images/crack2.png';
     }
     return '';
   }
@@ -342,7 +342,7 @@ class _MinePageState extends State<MinePage> {
                                   : const Icon(Icons.construction, size: 48, color: Colors.white),
                                 if (_crackStep > 0)
                                   // Crack overlay remains SVG, as it's a visual effect, not an item icon
-                                  SvgPicture.asset(_crackAsset(_crackStep, _nextOre!), width: 48, height: 48),
+                                  Image.asset(_crackAsset(_crackStep, _nextOre!), width: 48, height: 48),
                                 if (_isPressed && !_mining)
                                   Container(
                                     width: 100,

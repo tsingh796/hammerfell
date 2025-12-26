@@ -9,6 +9,6 @@ class CoinIcon extends StatelessWidget {
 
 	@override
 	Widget build(BuildContext context) {
-		return SvgPicture.asset(asset, width: size, height: size);
+		return Image.asset(asset, width: size, height: size);
 	}
 }
