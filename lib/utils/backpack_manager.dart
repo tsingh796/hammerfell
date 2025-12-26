@@ -65,6 +65,7 @@ class BackpackManager extends ChangeNotifier {
 
   void moveItem(int from, int to) {
     if (from < 0 || from >= size || to < 0 || to >= size) return;
+    if (from == to) return;
     final slotFrom = backpack[from];
     final slotTo = backpack[to];
     if (slotFrom == null) return;
@@ -82,9 +83,12 @@ class BackpackManager extends ChangeNotifier {
         slotFrom['count'] = movingCount - available;
       }
     } else {
-      final temp = backpack[to];
-      backpack[to] = slotFrom;
-      backpack[from] = temp;
+      // Only swap if both slots are valid
+      if (slotTo != null) {
+        final temp = backpack[to];
+        backpack[to] = slotFrom;
+        backpack[from] = temp;
+      }
     }
     save();
     notifyListeners();

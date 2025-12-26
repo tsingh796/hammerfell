@@ -1,21 +1,54 @@
 import 'package:flutter/material.dart';
 import '../utils/backpack_manager.dart';
 import 'package:provider/provider.dart';
+
 import 'item_icon.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ChestManager {
   static final ChestManager _instance = ChestManager._internal();
   factory ChestManager() => _instance;
   ChestManager._internal();
 
+
   // 5x5 grid
+  final int size = 25;
   final List<Map<String, dynamic>?> chest = List.generate(25, (_) => null);
+
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final chestStr = prefs.getString('global_chest');
+    if (chestStr != null && chestStr.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(chestStr) as List;
+        for (int i = 0; i < size && i < decoded.length; i++) {
+          if (decoded[i] != null) {
+            chest[i] = Map<String, dynamic>.from(decoded[i] as Map);
+          } else {
+            chest[i] = null;
+          }
+        }
+      } catch (_) {
+        for (int i = 0; i < size; i++) {
+          chest[i] = null;
+        }
+      }
+    }
+  }
+
+  Future<void> save() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = chest.map((slot) => slot == null ? null : Map<String, dynamic>.from(slot)).toList();
+    await prefs.setString('global_chest', jsonEncode(encoded));
+  }
 
   void moveItem(int from, int to) {
     if (from == to) return;
     final temp = chest[from];
     chest[from] = chest[to];
     chest[to] = temp;
+    save();
   }
 
   void addItem(String type) {
@@ -23,6 +56,7 @@ class ChestManager {
     for (var slot in chest) {
       if (slot != null && slot['type'] == type && slot['count'] < 64) {
         slot['count'] += 1;
+        save();
         return;
       }
     }
@@ -30,6 +64,7 @@ class ChestManager {
     for (int i = 0; i < chest.length; i++) {
       if (chest[i] == null) {
         chest[i] = {'type': type, 'count': 1};
+        save();
         return;
       }
     }
@@ -44,6 +79,13 @@ class ChestWidget extends StatefulWidget {
 }
 
 class _ChestWidgetState extends State<ChestWidget> {
+  @override
+  void initState() {
+    super.initState();
+    ChestManager().load().then((_) {
+      setState(() {});
+    });
+  }
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -124,6 +166,7 @@ class _ChestWidgetState extends State<ChestWidget> {
                   } else {
                     ChestManager().moveItem(fromIdx, index);
                   }
+                  ChestManager().save();
                 }
                 // 2. Move from backpack to chest (merge if same type, else fill empty)
                 else if (data['from'] != null) {
@@ -146,6 +189,7 @@ class _ChestWidgetState extends State<ChestWidget> {
                     BackpackManager().save();
                   }
                 }
+                ChestManager().save();
                 setState(() {});
               });
             },
@@ -206,34 +250,32 @@ class _ChestWidgetState extends State<ChestWidget> {
                 },
                 onWillAccept: (data) => true,
                 onAccept: (data) {
-                  setState(() {
-                    // 1. Move item within backpack
-                    if (data['from'] != null) {
-                      backpackManager.moveItem(data['from'], index);
-                    }
-                    // 2. Move from chest to backpack (move full stack)
-                    else if (data['fromChest'] != null) {
-                      final chest = ChestManager().chest;
-                      int fromIdx = data['fromChest'];
-                      if (chest[fromIdx] != null) {
-                        int moveCount = chest[fromIdx]!['count'] ?? 1;
-                        String type = chest[fromIdx]!['type'];
-                        // Try to stack into backpack slot if same type
-                        if (slot != null && slot['type'] == type && slot['count'] < 64) {
-                          int space = 64 - (slot['count'] as int);
-                          int toMove = moveCount > space ? space : moveCount;
-                          slot['count'] += toMove;
-                          chest[fromIdx]!['count'] -= toMove;
-                          if (chest[fromIdx]!['count'] <= 0) chest[fromIdx] = null;
-                          BackpackManager().save();
-                        } else if (slot == null) {
-                          backpack[index] = {'type': type, 'count': moveCount};
-                          chest[fromIdx] = null;
-                          BackpackManager().save();
-                        }
+                  // Move item within backpack
+                  if (data['from'] != null) {
+                    backpackManager.moveItem(data['from'], index);
+                  }
+                  // Move from chest to backpack (move full stack)
+                  else if (data['fromChest'] != null) {
+                    final chest = ChestManager().chest;
+                    int fromIdx = data['fromChest'];
+                    if (chest[fromIdx] != null) {
+                      int moveCount = chest[fromIdx]!['count'] ?? 1;
+                      String type = chest[fromIdx]!['type'];
+                      // Try to stack into backpack slot if same type
+                      if (slot != null && slot['type'] == type && slot['count'] < 64) {
+                        int space = 64 - (slot['count'] as int);
+                        int toMove = moveCount > space ? space : moveCount;
+                        slot['count'] += toMove;
+                        chest[fromIdx]!['count'] -= toMove;
+                        if (chest[fromIdx]!['count'] <= 0) chest[fromIdx] = null;
+                      } else if (slot == null) {
+                        backpack[index] = {'type': type, 'count': moveCount};
+                        chest[fromIdx] = null;
                       }
                     }
-                  });
+                  }
+                  BackpackManager().save();
+                  // No need for setState here; Consumer will rebuild
                 },
               );
             },

@@ -56,16 +56,20 @@ class _MineSearchModalState extends State<MineSearchModal> {
 
   String _pickRandomOre() {
     // Use config-driven mine type selection if available via InheritedWidget or static config
-    // For now, fallback to hardcoded if not available
-    final oreChances = {
-      'copper': 0.5,
-      'iron': 0.3,
-      'gold': 0.15,
+    // Try to get mining chances from main.dart (via InheritedWidget or static/global)
+    // Fallback to hardcoded if not available
+    Map<String, double> mineTypeChances = {
+      'coal': 0.45,
+      'copper': 0.25,
+      'iron': 0.15,
+      'gold': 0.10,
       'diamond': 0.05,
     };
-    final oreNames = oreChances.keys.toList();
-    final weights = oreNames.map((k) => oreChances[k] ?? 0.0).toList();
-    return weightedRandomChoice(oreNames, weights) ?? 'copper';
+    // If mining chances are provided via InheritedWidget or static config, use them
+    // For now, use hardcoded values only. Remove reference to _HomePageState.
+    final oreNames = mineTypeChances.keys.toList();
+    final weights = oreNames.map((k) => mineTypeChances[k] ?? 0.0).toList();
+    return weightedRandomChoice(oreNames, weights) ?? 'coal';
   }
 
   @override

@@ -70,21 +70,70 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-    void _openChest() {
-      showModalBottomSheet(
-        context: context,
-        isDismissible: true,
-        enableDrag: false,
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-        ),
-        builder: (c) => Padding(
-          padding: const EdgeInsets.all(16),
-          child: ChestWidget(),
-        ),
-      );
-    }
+  FurnaceState? _homeFurnaceState;
+  final String _homeFurnaceKey = 'furnace_home';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadConfig();
+    BackpackManager().load();
+    _homeFurnaceState = FurnaceState();
+    _homeFurnaceState!.load(_homeFurnaceKey).then((_) {
+      setState(() {});
+    });
+    SharedPreferences.getInstance().then((prefs) {
+      setState(() {
+        hammerfells = prefs.getInt('hammerfells') ?? 10;
+        ironOre = prefs.getInt('ironOre') ?? 0;
+        copperOre = prefs.getInt('copperOre') ?? 0;
+        goldOre = prefs.getInt('goldOre') ?? 0;
+        diamond = prefs.getInt('diamond') ?? 0;
+        coal = prefs.getInt('coal') ?? 0;
+        stone = prefs.getInt('stone') ?? 0;
+        ironIngot = prefs.getInt('ironIngot') ?? 0;
+        copperIngot = prefs.getInt('copperIngot') ?? 0;
+        goldIngot = prefs.getInt('goldIngot') ?? 0;
+        copperCoins = prefs.getInt('copperCoins') ?? 0;
+        silverCoins = prefs.getInt('silverCoins') ?? 0;
+        goldCoins = prefs.getInt('goldCoins') ?? 0;
+      });
+      // Load last entered mine (as JSON object)
+      final lastMine = prefs.getString('lastMine');
+      if (lastMine != null && lastMine.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(lastMine);
+          if (decoded is Map<String, dynamic> && decoded['oreType'] != null) {
+            currentMine = Mine.fromJson(decoded);
+            hasEnteredMine = true;
+          } else {
+            currentMine = null;
+            hasEnteredMine = false;
+          }
+        } catch (_) {
+          currentMine = null;
+          hasEnteredMine = false;
+        }
+      }
+    });
+  }
+
+  void _openChestModal() {
+    showModalBottomSheet(
+      context: context,
+      isDismissible: true,
+      enableDrag: false,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      builder: (c) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: ChestWidget(),
+      ),
+    );
+  }
+
   void resetDebug10() {
     setState(() {
       hammerfells = 50;
@@ -111,12 +160,12 @@ class _HomePageState extends State<HomePage> {
       _saveGame();
     });
   }
-    FurnaceState? _homeFurnaceState;
+    // ...existing code...
   // Backpack inventory: Each slot is {'type': oreType, 'count': int}
   // Use global backpack singleton
 
   // Public ore asset helper for use in backpack grid
-  static String oreAsset(String oreType) {
+  String oreAsset(String oreType) {
     switch (oreType) {
       case 'iron':
       case 'iron_ore':
@@ -182,46 +231,7 @@ class _HomePageState extends State<HomePage> {
   // Mine ore chances configuration
   Map<String, Map<String, double>> mineOreChances = {};
 
-  @override
-  void initState() {
-    super.initState();
-    _loadConfig();
-    BackpackManager().load();
-    SharedPreferences.getInstance().then((prefs) {
-      setState(() {
-        hammerfells = prefs.getInt('hammerfells') ?? 10;
-        ironOre = prefs.getInt('ironOre') ?? 0;
-        copperOre = prefs.getInt('copperOre') ?? 0;
-        goldOre = prefs.getInt('goldOre') ?? 0;
-        diamond = prefs.getInt('diamond') ?? 0;
-        coal = prefs.getInt('coal') ?? 0;
-        stone = prefs.getInt('stone') ?? 0;
-        ironIngot = prefs.getInt('ironIngot') ?? 0;
-        copperIngot = prefs.getInt('copperIngot') ?? 0;
-        goldIngot = prefs.getInt('goldIngot') ?? 0;
-        copperCoins = prefs.getInt('copperCoins') ?? 0;
-        silverCoins = prefs.getInt('silverCoins') ?? 0;
-        goldCoins = prefs.getInt('goldCoins') ?? 0;
-      });
-      // Load last entered mine (as JSON object)
-      final lastMine = prefs.getString('lastMine');
-      if (lastMine != null && lastMine.isNotEmpty) {
-        try {
-          final decoded = jsonDecode(lastMine);
-          if (decoded is Map<String, dynamic> && decoded['oreType'] != null) {
-            currentMine = Mine.fromJson(decoded);
-            hasEnteredMine = true;
-          } else {
-            currentMine = null;
-            hasEnteredMine = false;
-          }
-        } catch (_) {
-          currentMine = null;
-          hasEnteredMine = false;
-        }
-      }
-    });
-  }
+  // ...existing code...
 
   Future<void> _loadConfig() async {
     try {
@@ -542,7 +552,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openFurnace() {
-    _homeFurnaceState ??= FurnaceState();
     showModalBottomSheet(
       context: context,
       isDismissible: true,
@@ -557,6 +566,7 @@ class _HomePageState extends State<HomePage> {
           furnaceState: _homeFurnaceState!,
           onStateChanged: () {
             setState(() {});
+            _homeFurnaceState?.save(_homeFurnaceKey);
           },
         ),
       ),
@@ -956,7 +966,7 @@ class _HomePageState extends State<HomePage> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: _openChest,
+                            onPressed: _openChestModal,
                             icon: const Icon(Icons.inventory),
                             label: const Text('Chest'),
                             style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),

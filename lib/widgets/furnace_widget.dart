@@ -5,6 +5,9 @@ import '../utils/backpack_manager.dart';
 import 'package:provider/provider.dart';
 import 'item_icon.dart';
 
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+
 class FurnaceState {
   Map<String, dynamic>? input; // {'type': ore, 'count': n}
   Map<String, dynamic>? fuel; // {'type': 'coal', 'count': n}
@@ -13,6 +16,50 @@ class FurnaceState {
   int oreSecondsRemaining = 0;
   int fuelSecondsRemaining = 0;
   Timer? _timer;
+
+  FurnaceState();
+
+  Map<String, dynamic> toJson() => {
+    'input': input,
+    'fuel': fuel,
+    'output': output,
+    'isSmelting': isSmelting,
+    'oreSecondsRemaining': oreSecondsRemaining,
+    'fuelSecondsRemaining': fuelSecondsRemaining,
+  };
+
+  static FurnaceState fromJson(Map<String, dynamic> json) {
+    final state = FurnaceState();
+    state.input = json['input'] != null ? Map<String, dynamic>.from(json['input']) : null;
+    state.fuel = json['fuel'] != null ? Map<String, dynamic>.from(json['fuel']) : null;
+    state.output = json['output'] != null ? Map<String, dynamic>.from(json['output']) : null;
+    state.isSmelting = json['isSmelting'] ?? false;
+    state.oreSecondsRemaining = json['oreSecondsRemaining'] ?? 0;
+    state.fuelSecondsRemaining = json['fuelSecondsRemaining'] ?? 0;
+    return state;
+  }
+
+  Future<void> save(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(key, jsonEncode(toJson()));
+  }
+
+  Future<void> load(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    final str = prefs.getString(key);
+    if (str != null && str.isNotEmpty) {
+      try {
+        final json = jsonDecode(str);
+        final loaded = FurnaceState.fromJson(json);
+        input = loaded.input;
+        fuel = loaded.fuel;
+        output = loaded.output;
+        isSmelting = false; // Always reset smelting on load
+        oreSecondsRemaining = 0;
+        fuelSecondsRemaining = loaded.fuelSecondsRemaining;
+      } catch (_) {}
+    }
+  }
 
   // Add ore to input slot (up to 64)
   void addOre(Map<String, dynamic> ore, int count, VoidCallback onUpdate) {
@@ -306,47 +353,50 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
         return true;
       },
       onAccept: (data) {
-        // If drag is from backpack, remove from backpack here as well
-        if (data != null && data['from'] != null) {
-          final backpack = BackpackManager().backpack;
-          int fromIdx = data['from'];
-          int moveCount = backpack[fromIdx]?['count'] ?? 1;
-          String type = backpack[fromIdx]?['type'];
-          int actuallyMoved = 0;
-          if (label == 'Input') {
-            if (widget.furnaceState.input != null && widget.furnaceState.input!['type'] == type && widget.furnaceState.input!['count'] < 64) {
-              int space = 64 - (widget.furnaceState.input!['count'] as int);
-              int toMove = moveCount > space ? space : moveCount;
-              if (toMove > 0) {
-                widget.furnaceState.input!['count'] += toMove;
-                actuallyMoved = toMove;
+        setState(() {
+          // If drag is from backpack, remove from backpack here as well
+          if (data != null && data['from'] != null) {
+            final backpack = BackpackManager().backpack;
+            int fromIdx = data['from'];
+            int moveCount = backpack[fromIdx]?['count'] ?? 1;
+            String type = backpack[fromIdx]?['type'];
+            int actuallyMoved = 0;
+            if (label == 'Input') {
+              if (widget.furnaceState.input != null && widget.furnaceState.input!['type'] == type && widget.furnaceState.input!['count'] < 64) {
+                int space = 64 - (widget.furnaceState.input!['count'] as int);
+                int toMove = moveCount > space ? space : moveCount;
+                if (toMove > 0) {
+                  widget.furnaceState.input!['count'] += toMove;
+                  actuallyMoved = toMove;
+                }
+              } else if (widget.furnaceState.input == null && moveCount > 0) {
+                widget.furnaceState.input = {'type': type, 'count': moveCount};
+                actuallyMoved = moveCount;
               }
-            } else if (widget.furnaceState.input == null && moveCount > 0) {
-              widget.furnaceState.input = {'type': type, 'count': moveCount};
-              actuallyMoved = moveCount;
-            }
-          } else if (label == 'Fuel') {
-            if (widget.furnaceState.fuel != null && widget.furnaceState.fuel!['type'] == type && widget.furnaceState.fuel!['count'] < 64) {
-              int space = 64 - (widget.furnaceState.fuel!['count'] as int);
-              int toMove = moveCount > space ? space : moveCount;
-              if (toMove > 0) {
-                widget.furnaceState.fuel!['count'] += toMove;
-                actuallyMoved = toMove;
+            } else if (label == 'Fuel') {
+              if (widget.furnaceState.fuel != null && widget.furnaceState.fuel!['type'] == type && widget.furnaceState.fuel!['count'] < 64) {
+                int space = 64 - (widget.furnaceState.fuel!['count'] as int);
+                int toMove = moveCount > space ? space : moveCount;
+                if (toMove > 0) {
+                  widget.furnaceState.fuel!['count'] += toMove;
+                  actuallyMoved = toMove;
+                }
+              } else if (widget.furnaceState.fuel == null && moveCount > 0) {
+                widget.furnaceState.fuel = {'type': type, 'count': moveCount};
+                actuallyMoved = moveCount;
               }
-            } else if (widget.furnaceState.fuel == null && moveCount > 0) {
-              widget.furnaceState.fuel = {'type': type, 'count': moveCount};
-              actuallyMoved = moveCount;
             }
+            if (actuallyMoved > 0) {
+              backpack[fromIdx]!['count'] -= actuallyMoved;
+              if (backpack[fromIdx]!['count'] <= 0) backpack[fromIdx] = null;
+              BackpackManager().save();
+            }
+            widget.onStateChanged();
+          } else {
+            onAccept(data);
+            widget.onStateChanged();
           }
-          if (actuallyMoved > 0) {
-            backpack[fromIdx]!['count'] -= actuallyMoved;
-            if (backpack[fromIdx]!['count'] <= 0) backpack[fromIdx] = null;
-            BackpackManager().save();
-          }
-          widget.onStateChanged();
-        } else {
-          onAccept(data);
-        }
+        });
       },
     );
   }
