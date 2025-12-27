@@ -55,8 +55,9 @@ I recommend implementing these features one by one in the following order, with 
 [tested] Add one more mine button on minepage - Simple duplication of existing functionality
 
 Phase 2: Core Mechanics Enhancement
-Consume 1 hammerfell on each mine - Test economy balance carefully
-Stack splitting on long press - Complex interaction change, needs thorough testing across all grids
+[tested] Consume 1 hammerfell on each mine - Test economy balance carefully
+[tested] Stack splitting on long press - Complex interaction change, needs thorough testing across all grids
+[deffered] implement stack split in chest and furnace
 
 Phase 3: Shelves System (Related Changes)
 Refactor ore/ingot grids to shelves - Rename and restructure
