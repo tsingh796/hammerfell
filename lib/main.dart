@@ -11,6 +11,7 @@ import 'package:yaml/yaml.dart';
 import 'widgets/furnace_widget.dart';
 import 'widgets/chest_widget.dart';
 import 'widgets/item_icon.dart';
+import 'widgets/inventory_grid_with_splitting.dart';
 import 'modals/mine_modal.dart';
 import 'utils/color_utils.dart';
 // import 'modals/forest_modal.dart';
@@ -592,6 +593,8 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+
+
   @override
   Widget build(BuildContext context) {
     // Card colors for ores/ingots
@@ -670,12 +673,12 @@ class _HomePageState extends State<HomePage> {
       ),
       appBar: null,
       body: SafeArea(
-        child: Container(
-          width: double.infinity,
-          height: double.infinity,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
+          child: Container(
+            width: double.infinity,
+            height: double.infinity,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
               // Top: Hammerfells and coins row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -855,86 +858,14 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 8),
                     Consumer<BackpackManager>(
                       builder: (context, backpackManager, child) {
-                        final backpack = backpackManager.backpack;
                         return Center(
-                          child: SizedBox(
-                            width: 256,
-                            height: 52,
-                            child: ClipRect(
-                              child: GridView.builder(
-                              shrinkWrap: true,
-                              padding: EdgeInsets.zero,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 5,
-                                mainAxisSpacing: 4,
-                                crossAxisSpacing: 4,
-                                childAspectRatio: 1,
-                              ),
-                              itemCount: 5,
-                              itemBuilder: (context, index) {
-                                final slot = backpack[index];
-                                return DragTarget<Map<String, dynamic>>(
-                                  builder: (context, candidateData, rejectedData) {
-                                    return slot != null
-                                        ? Draggable<Map<String, dynamic>>(
-                                            data: {...slot, 'from': index},
-                                            feedback: Material(
-                                              color: Colors.transparent,
-                                              child: Container(
-                                                width: 48,
-                                                height: 48,
-                                                decoration: BoxDecoration(
-                                                  border: Border.all(color: Colors.amber, width: 2),
-                                                  color: Colors.black.withOpacity(0.7),
-                                                  borderRadius: BorderRadius.circular(8),
-                                                ),
-                                                child: Row(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    ItemIcon(type: slot['type'], count: slot['count'], size: 20),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            childWhenDragging: Container(
-                                              decoration: BoxDecoration(
-                                                border: Border.all(color: Colors.grey, width: 2),
-                                                color: Colors.black.withOpacity(0.05),
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                            ),
-                                            onDragCompleted: () {},
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                border: Border.all(color: Colors.grey, width: 2),
-                                                color: Colors.black.withOpacity(0.15),
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                              alignment: Alignment.center,
-                                              child: ItemIcon(type: slot['type'], count: slot['count'], size: 20),
-                                            ),
-                                          )
-                                        : Container(
-                                            decoration: BoxDecoration(
-                                              border: Border.all(color: Colors.grey, width: 2),
-                                              color: Colors.black.withOpacity(0.05),
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                          );
-                                  },
-                                  onWillAccept: (data) {
-                                    // Accept any item for any slot
-                                    return data != null;
-                                  },
-                                  onAccept: (data) {
-                                    backpackManager.moveItem(data['from'] as int, index);
-                                  },
-                                );
-                              },
-                            ),
-                            ),
+                          child: InventoryGridWithSplitting(
+                            slots: backpackManager.backpack,
+                            onMoveItem: (from, to) => backpackManager.moveItem(from, to),
+                            onSplitStack: (index) => backpackManager.splitStack(index),
+                            onSave: () => backpackManager.save(),
+                            columns: 5,
+                            rows: 1,
                           ),
                         );
                       },

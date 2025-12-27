@@ -101,4 +101,20 @@ class BackpackManager extends ChangeNotifier {
     save();
     notifyListeners();
   }
+
+  Map<String, dynamic>? splitStack(int index) {
+    if (index < 0 || index >= size) return null;
+    final slot = backpack[index];
+    if (slot == null || slot['count'] <= 1) return null;
+    
+    final count = slot['count'] as int;
+    final halfCount = (count / 2).ceil();
+    final remainingCount = count - halfCount;
+    
+    slot['count'] = remainingCount;
+    save();
+    notifyListeners();
+    
+    return {'type': slot['type'], 'count': halfCount};
+  }
 }

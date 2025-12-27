@@ -9,6 +9,7 @@ import '../modals/mine_search_modal.dart';
 import '../utils/random_utils.dart';
 import '../utils/backpack_manager.dart';
 import '../widgets/item_icon.dart';
+import '../widgets/inventory_grid_with_splitting.dart';
 import '../widgets/furnace_widget.dart';
 import 'package:provider/provider.dart';
 
@@ -459,102 +460,18 @@ class MinePage extends StatefulWidget {
                         const SizedBox(height: 8),
                         Consumer<BackpackManager>(
                           builder: (context, backpackManager, child) {
-                            final backpack = backpackManager.backpack;
                             return Center(
-                              child: SizedBox(
-                                width: 256,
-                                height: 52,
-                                child: ClipRect(
-                                  child: GridView.builder(
-                                  shrinkWrap: true,
-                                  padding: EdgeInsets.zero,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 5,
-                                    mainAxisSpacing: 4,
-                                    crossAxisSpacing: 4,
-                                    childAspectRatio: 1,
-                                  ),
-                                  itemCount: 5,
-                                  itemBuilder: (context, index) {
-                                    final slot = backpack[index];
-                                    return DragTarget<Map<String, dynamic>>(
-                                      builder: (context, candidateData, rejectedData) {
-                                        return slot != null
-                                            ? Draggable<Map<String, dynamic>>(
-                                                data: {...slot, 'from': index},
-                                                feedback: Material(
-                                                  color: Colors.transparent,
-                                                  child: Container(
-                                                    width: 48,
-                                                    height: 48,
-                                                    decoration: BoxDecoration(
-                                                      border: Border.all(color: Colors.amber, width: 2),
-                                                      color: Colors.black.withOpacity(0.7),
-                                                      borderRadius: BorderRadius.circular(8),
-                                                    ),
-                                                    child: Row(
-                                                      mainAxisAlignment: MainAxisAlignment.center,
-                                                      mainAxisSize: MainAxisSize.min,
-                                                      children: [
-                                                        ItemIcon(type: slot['type'], count: slot['count'], size: 20),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                                childWhenDragging: Container(
-                                                  decoration: BoxDecoration(
-                                                    border: Border.all(color: Colors.grey, width: 2),
-                                                    color: Colors.black.withOpacity(0.05),
-                                                    borderRadius: BorderRadius.circular(8),
-                                                  ),
-                                                ),
-                                                onDragCompleted: () {},
-                                                child: Container(
-                                                  decoration: BoxDecoration(
-                                                    border: Border.all(color: Colors.grey, width: 2),
-                                                    color: Colors.black.withOpacity(0.15),
-                                                    borderRadius: BorderRadius.circular(8),
-                                                  ),
-                                                  alignment: Alignment.center,
-                                                  child: Row(
-                                                    mainAxisAlignment: MainAxisAlignment.center,
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      ItemIcon(type: slot['type'], count: slot['count'], size: 20),
-                                                    ],
-                                                  ),
-                                                ),
-                                              )
-                                            : Container(
-                                                decoration: BoxDecoration(
-                                                  border: Border.all(color: Colors.grey, width: 2),
-                                                  color: Colors.black.withOpacity(0.05),
-                                                  borderRadius: BorderRadius.circular(8),
-                                                ),
-                                              );
-                                      },
-                                      onWillAccept: (data) {
-                                        if (data == null) return false;
-                                        if (slot == null) return true;
-                                        if (slot['type'] == data['type'] && (slot['count'] as int) < 64) return true;
-                                        return false;
-                                      },
-                                      onAccept: (data) {
-                                        setState(() {
-                                          int from = data['from'] as int;
-                                          int to = index;
-                                          BackpackManager().moveItem(from, to);
-                                        });
-                                      },
-                                    );
-                                  },
-                                ),
+                              child: InventoryGridWithSplitting(
+                                slots: backpackManager.backpack,
+                                onMoveItem: (from, to) => backpackManager.moveItem(from, to),
+                                onSplitStack: (index) => backpackManager.splitStack(index),
+                                onSave: () => backpackManager.save(),
+                                columns: 5,
+                                rows: 1,
                               ),
-                            ),
-                          );
-                        },
-                      ),
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ),
