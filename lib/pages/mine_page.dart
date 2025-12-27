@@ -48,7 +48,9 @@ class MinePage extends StatefulWidget {
     bool _hasEnteredMine = false;
     dynamic _currentMine;
     bool _mining = false;
-    bool _isPressed = false;
+    int? _miningButtonIndex; // Track which button (1 or 2) is currently mining
+    bool _isPressed1 = false;
+    bool _isPressed2 = false;
     int _crackStep = 0;
     String? _mineResult;
     final FurnaceState _furnaceState = FurnaceState();
@@ -127,6 +129,27 @@ class MinePage extends StatefulWidget {
       return '';
     }
 
+    String _getOreBlockAsset(String oreType) {
+      switch (oreType) {
+        case 'coal':
+          return 'assets/images/coal_ore_block.png';
+        case 'copper':
+          return 'assets/images/copper_ore_block.png';
+        case 'iron':
+          return 'assets/images/iron_ore_block.png';
+        case 'silver':
+          return 'assets/images/silver_ore_block.png';
+        case 'gold':
+          return 'assets/images/gold_ore_block.png';
+        case 'diamond':
+          return 'assets/images/diamond_ore_block.png';
+        case 'stone':
+          return 'assets/images/stone_block.png';
+        default:
+          return 'assets/images/stone_block.png';
+      }
+    }
+
     String _pickNextOre() {
       final oreType = _currentMine.oreType;
       final oreChances = widget.mineOreChances[oreType];
@@ -196,8 +219,24 @@ class MinePage extends StatefulWidget {
       if (_hasEnteredMine && _currentMine != null && _nextOre == null) {
         _nextOre = _pickNextOre();
       }
+      final String mineTitle = _currentMine != null 
+          ? '${_currentMine.oreType[0].toUpperCase()}${_currentMine.oreType.substring(1)} Mine'
+          : 'Mine';
       return Scaffold(
-        appBar: AppBar(title: const Text('Mine')),
+        appBar: AppBar(
+          title: Text(mineTitle),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Center(
+                child: Text(
+                  'Hammerfells: ${widget.hammerfells}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+            ),
+          ],
+        ),
         body: Stack(
           children: [
             Center(
@@ -214,13 +253,15 @@ class MinePage extends StatefulWidget {
                     child: const Text('Search for Mine'),
                   ),
                   const SizedBox(height: 20),
+                  // First mining button
                   GestureDetector(
                     onLongPressStart: (_mining || _nextOre == null)
                         ? null
                         : (details) async {
                             setState(() {
-                              _isPressed = true;
+                              _isPressed1 = true;
                               _mining = true;
+                              _miningButtonIndex = 1;
                               _mineResult = null;
                               _crackStep = 1;
                             });
@@ -234,8 +275,9 @@ class MinePage extends StatefulWidget {
                             await widget.onMine(oreType);
                             setState(() {
                               _mining = false;
+                              _miningButtonIndex = null;
                               _crackStep = 0;
-                              _isPressed = false;
+                              _isPressed1 = false;
                               _mineResult = 'Mined $oreType!';
                               _addToBackpack(oreType);
                               _nextOre = _pickNextOre();
@@ -248,71 +290,141 @@ class MinePage extends StatefulWidget {
                             if (_mining) {
                               setState(() {
                                 _mining = false;
+                                _miningButtonIndex = null;
                                 _crackStep = 0;
-                                _isPressed = false;
+                                _isPressed1 = false;
                               });
                             }
                           },
                     onTapDown: (_) {
                       if (!_mining && _nextOre != null) {
                         setState(() {
-                          _isPressed = true;
+                          _isPressed1 = true;
                         });
                       }
                     },
                     onTapUp: (_) {
-                      if (_isPressed) {
+                      if (_isPressed1) {
                         setState(() {
-                          _isPressed = false;
+                          _isPressed1 = false;
                         });
                       }
                     },
                     onTapCancel: () {
-                      if (_isPressed) {
+                      if (_isPressed1) {
                         setState(() {
-                          _isPressed = false;
+                          _isPressed1 = false;
                         });
                       }
                     },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 100),
-                      width: _isPressed ? 92 : 100,
-                      height: _isPressed ? 92 : 100,
+                    child: Container(
+                      width: 120,
+                      height: 120,
                       decoration: BoxDecoration(
-                        color: _mining || _isPressed
-                            ? Colors.grey[800]
-                            : Theme.of(context).colorScheme.primary,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.25),
-                            blurRadius: 10,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                        border: Border.all(
-                          color: _isPressed ? Colors.amber : Colors.black54,
-                          width: _isPressed ? 3 : 2,
-                        ),
+                        image: _currentMine != null && _currentMine.oreType != null
+                            ? DecorationImage(
+                                image: AssetImage(_getOreBlockAsset(_currentMine.oreType)),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                        color: _currentMine == null ? Colors.grey[700] : null,
+                        border: _isPressed1 ? Border.all(color: Colors.white, width: 2) : null,
                       ),
-                      alignment: Alignment.center,
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          _nextOre != null
-                              ? ItemIcon(type: _nextOre!, count: 1, size: 48, showCount: false)
-                              : const Icon(Icons.construction, size: 48, color: Colors.white),
-                          if (_crackStep > 0)
-                            Image.asset(_crackAsset(_crackStep, _nextOre!), width: 48, height: 48),
-                          if (_isPressed && !_mining)
-                            Container(
-                              width: 100,
-                              height: 100,
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.18),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
+                          if (_currentMine == null)
+                            const Icon(Icons.construction, size: 80, color: Colors.white),
+                          if (_crackStep > 0 && _nextOre != null && _miningButtonIndex == 1)
+                            Image.asset(_crackAsset(_crackStep, _nextOre!), width: 120, height: 120, fit: BoxFit.cover),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Second mining button
+                  GestureDetector(
+                    onLongPressStart: (_mining || _nextOre == null)
+                        ? null
+                        : (details) async {
+                            setState(() {
+                              _isPressed2 = true;
+                              _mining = true;
+                              _miningButtonIndex = 2;
+                              _mineResult = null;
+                              _crackStep = 1;
+                            });
+                            Feedback.forLongPress(context);
+                            await Future.delayed(const Duration(milliseconds: 400));
+                            setState(() {
+                              _crackStep = 2;
+                            });
+                            await Future.delayed(const Duration(milliseconds: 400));
+                            final oreType = _nextOre!;
+                            await widget.onMine(oreType);
+                            setState(() {
+                              _mining = false;
+                              _miningButtonIndex = null;
+                              _crackStep = 0;
+                              _isPressed2 = false;
+                              _mineResult = 'Mined $oreType!';
+                              _addToBackpack(oreType);
+                              _nextOre = _pickNextOre();
+                            });
+                            _saveMineState();
+                          },
+                    onLongPressEnd: (_mining || _nextOre == null)
+                        ? null
+                        : (details) {
+                            if (_mining) {
+                              setState(() {
+                                _mining = false;
+                                _miningButtonIndex = null;
+                                _crackStep = 0;
+                                _isPressed2 = false;
+                              });
+                            }
+                          },
+                    onTapDown: (_) {
+                      if (!_mining && _nextOre != null) {
+                        setState(() {
+                          _isPressed2 = true;
+                        });
+                      }
+                    },
+                    onTapUp: (_) {
+                      if (_isPressed2) {
+                        setState(() {
+                          _isPressed2 = false;
+                        });
+                      }
+                    },
+                    onTapCancel: () {
+                      if (_isPressed2) {
+                        setState(() {
+                          _isPressed2 = false;
+                        });
+                      }
+                    },
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        image: _currentMine != null && _currentMine.oreType != null
+                            ? DecorationImage(
+                                image: AssetImage(_getOreBlockAsset(_currentMine.oreType)),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                        color: _currentMine == null ? Colors.grey[700] : null,
+                        border: _isPressed2 ? Border.all(color: Colors.white, width: 2) : null,
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          if (_currentMine == null)
+                            const Icon(Icons.construction, size: 80, color: Colors.white),
+                          if (_crackStep > 0 && _nextOre != null && _miningButtonIndex == 2)
+                            Image.asset(_crackAsset(_crackStep, _nextOre!), width: 120, height: 120, fit: BoxFit.cover),
                         ],
                       ),
                     ),

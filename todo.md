@@ -1,10 +1,10 @@
 ## Bugs to fix
-- Chest contents not persisting between sessions
-- furnace: mine and homepage have identical furnace content, need a separate furnace instance for the different pages
+- [test] Chest contents not persisting between sessions
+- [test] furnace: mine and homepage have identical furnace content, need a separate furnace instance for the different pages
 - Sometimes when moving from backpack, if dropped around the edges of backpack grid, the item is lost
 - looks like the probability of finding any mine-type is more or less equal
 - Home button in minepage not taking me back to homepage
-- furnace is not working. after adding ore and fuel, no option to start smelting is given and smelting does not start
+- [test] furnace is not working. after adding ore and fuel, no option to start smelting is given and smelting does not start
 - mining button in minepage on presshold, image changes to red cross (like when not finding the image file)
 
 
@@ -47,6 +47,32 @@
 
 
 
+I recommend implementing these features one by one in the following order, with testing after each:
+
+[started] Phase 1: Quick Wins (Low Risk, High Value)
+Show hammerfells and coins on minepage - Simple UI addition, test immediately
+Change mining button to show ore block image - Quick asset swap, easy to test
+Add one more mine button on minepage - Simple duplication of existing functionality
+
+Phase 2: Core Mechanics Enhancement
+Consume 1 hammerfell on each mine - Test economy balance carefully
+Stack splitting on long press - Complex interaction change, needs thorough testing across all grids
+
+Phase 3: Shelves System (Related Changes)
+Refactor ore/ingot grids to shelves - Rename and restructure
+Implement unlimited stack shelves - New grid behavior
+Shelf ↔ chest transfer system - New interaction pattern
+
+Phase 4: Mine Expansion (Related Features)
+Add mine-specific chest - New persistence instance
+Add minecart widget - New UI component
+Minecart transport logic - Complex state management
+Minecart → homepage transfer - Integration testing needed
+
+Phase 5: New Pages (Largest Changes)
+Forest page - Clone and adapt mine page structure
+Craft page/widget - New 9x9 grid system, recipe logic needed
+Smithy page - Most complex: forge + fuel + 9x9 grid + hammer mechanics
 
 
 
