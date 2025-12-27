@@ -212,31 +212,49 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
               iconBuilder: furnace.input != null ? () => ItemIcon(type: furnace.input!['type'], count: furnace.input!['count']) : null,
             ),
             const SizedBox(width: 16),
-            // Output slot
-            _buildSlot(furnace.output, 'Output',
-              isOutput: true,
-              onAccept: (item) {
-                setState(() {
-                  if (furnace.output != null && furnace.output!['count'] > 0) {
+            // Output slot (clickable to collect all, or draggable to specific slot)
+            GestureDetector(
+              onTap: () {
+                if (furnace.output != null && furnace.output!['count'] > 0) {
+                  setState(() {
                     for (int i = 0; i < furnace.output!['count']; i++) {
                       BackpackManager().addItem(furnace.output!['type']);
                     }
                     furnace.output = null;
                     widget.onStateChanged();
-                  }
-                });
+                  });
+                }
               },
-              count: furnace.output != null ? furnace.output!['count'] : 0,
-              draggable: false,
-              iconBuilder: furnace.output != null ? () => ItemIcon(type: furnace.output!['type'], count: furnace.output!['count']) : null,
+              child: _buildSlot(furnace.output, 'Output',
+                isOutput: true,
+                onAccept: (item) {
+                  // Output slot doesn't accept drops
+                },
+                count: furnace.output != null ? furnace.output!['count'] : 0,
+                draggable: true,
+                dragData: furnace.output != null ? {...furnace.output!, 'slot': 'output'} : null,
+                iconBuilder: furnace.output != null ? () => ItemIcon(type: furnace.output!['type'], count: furnace.output!['count']) : null,
+              ),
             ),
           ],
         ),
         const SizedBox(height: 16),
-        // Fuel slot (coal)
-        Row(
+        // Fuel slot (coal) with burning indicator above
+        Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Burning indicator above fuel slot
+            if (furnace.fuelSecondsRemaining > 0)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.local_fire_department, color: Colors.orange, size: 20),
+                  const SizedBox(width: 4),
+                  Text('${furnace.fuelSecondsRemaining}s', style: const TextStyle(fontSize: 12, color: Colors.orange)),
+                ],
+              ),
+            if (furnace.fuelSecondsRemaining > 0) const SizedBox(height: 4),
+            // Fuel slot
             _buildSlot(furnace.fuel, 'Fuel',
               onAccept: (item) {
                 if (item['type'] == 'coal') {
@@ -248,8 +266,8 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
                 }
               },
               acceptTypes: ['coal'],
-              isFuel: true,
-              fuelSeconds: furnace.fuelSecondsRemaining,
+              isFuel: false,
+              fuelSeconds: 0,
               count: furnace.fuel != null ? furnace.fuel!['count'] : 0,
               draggable: furnace.fuel != null,
               dragData: furnace.fuel != null ? {...furnace.fuel!, 'slot': 'fuel'} : null,
@@ -258,20 +276,27 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
           ],
         ),
         const SizedBox(height: 16),
-        // Smelting progress
+        // Smelting progress and controls
         if (furnace.isSmelting)
-          Text('Smelting... ${furnace.oreSecondsRemaining}s'),
-        if (!furnace.isSmelting && furnace.input != null && furnace.input!['count'] > 0 && furnace.fuelSecondsRemaining >= 8 && (furnace.output == null || furnace.output!['count'] < 64))
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                furnace.startSmelting(() => setState(() {}), widget.onStateChanged);
-              });
-            },
-            child: const Text('Start Smelting'),
+          Text('Smelting... ${furnace.oreSecondsRemaining}s', style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+        if (!furnace.isSmelting && furnace.input != null && furnace.input!['count'] > 0)
+          Column(
+            children: [
+              if (furnace.fuelSecondsRemaining < 8)
+                const Text('Need at least 8s of fuel to start smelting', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              if (furnace.output != null && furnace.output!['count'] >= 64)
+                const Text('Output is full, remove items first', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              if (furnace.fuelSecondsRemaining >= 8 && (furnace.output == null || furnace.output!['count'] < 64))
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      furnace.startSmelting(() => setState(() {}), widget.onStateChanged);
+                    });
+                  },
+                  child: const Text('Start Smelting'),
+                ),
+            ],
           ),
-        if (furnace.fuelSecondsRemaining > 0)
-          Text('Fuel time left: ${furnace.fuelSecondsRemaining}s'),
         const SizedBox(height: 24),
         // Backpack grid (global)
         const Text('Backpack'),
@@ -321,15 +346,6 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
           );
         } else if (item != null && iconBuilder != null) {
           childWidget = Center(child: iconBuilder());
-        } else if (isFuel && fuelSeconds > 0) {
-          childWidget = Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.local_fire_department, color: Colors.orange),
-              Text('$fuelSeconds s', style: const TextStyle(fontSize: 10)),
-              if (count > 0) Text('$count', style: const TextStyle(fontSize: 10)),
-            ],
-          );
         } else {
           childWidget = Text(label, style: const TextStyle(fontSize: 12));
         }
@@ -337,8 +353,8 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            border: Border.all(color: isFuel ? Colors.orange : Colors.grey, width: 2),
-            color: isFuel && fuelSeconds > 0 ? Colors.orange.withOpacity(0.2) : Colors.black.withOpacity(0.08),
+            border: Border.all(color: Colors.grey, width: 2),
+            color: Colors.black.withOpacity(0.08),
             borderRadius: BorderRadius.circular(8),
           ),
           alignment: Alignment.center,
@@ -349,7 +365,6 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
         // ...existing code...
         if (isOutput) return false;
         if (acceptTypes != null && data != null && !acceptTypes.contains(data['type'])) return false;
-        if (isFuel && fuelSeconds > 0) return false;
         return true;
       },
       onAccept: (data) {
@@ -536,7 +551,7 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
                       backpackManager.save();
                     }
                     // 4. Move item within backpack
-                    else if (data['from'] != null) {
+                    else if (data['from'] != null && data['slot'] == null) {
                       backpackManager.moveItem(data['from'], index);
                     }
                     widget.onStateChanged();

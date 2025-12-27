@@ -6,7 +6,8 @@ import '../utils/random_utils.dart';
 
 class MineSearchModal extends StatefulWidget {
   final void Function(Mine) onEnterMine;
-  const MineSearchModal({super.key, required this.onEnterMine});
+  final String? currentMineType;
+  const MineSearchModal({super.key, required this.onEnterMine, this.currentMineType});
 
   @override
   State<MineSearchModal> createState() => _MineSearchModalState();
@@ -65,6 +66,17 @@ class _MineSearchModalState extends State<MineSearchModal> {
       'gold': 0.10,
       'diamond': 0.05,
     };
+    
+    // Exclude current mine type if provided, and redistribute probabilities
+    if (widget.currentMineType != null && mineTypeChances.containsKey(widget.currentMineType)) {
+      mineTypeChances.remove(widget.currentMineType);
+      // Normalize probabilities to sum to 1.0
+      final total = mineTypeChances.values.fold(0.0, (sum, val) => sum + val);
+      if (total > 0) {
+        mineTypeChances = mineTypeChances.map((key, value) => MapEntry(key, value / total));
+      }
+    }
+    
     // If mining chances are provided via InheritedWidget or static config, use them
     // For now, use hardcoded values only. Remove reference to _HomePageState.
     final oreNames = mineTypeChances.keys.toList();

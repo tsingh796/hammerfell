@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 class MineModal extends StatefulWidget {
 	final int hammerfells;
@@ -45,7 +44,7 @@ class _MineModalState extends State<MineModal> with TickerProviderStateMixin {
 		super.dispose();
 	}
 
-	Widget _mineTile(BuildContext context, String label, int cost, String key, String svgAsset) {
+	Widget _mineTile(BuildContext context, String label, int cost, String key, String imageAsset) {
 		final canMine = widget.hammerfells >= 1;
 		final chance = widget.miningChances != null ? (widget.miningChances![key] ?? 1.0) : 1.0;
 		final chancePct = (chance * 100).toStringAsFixed(0);
@@ -77,7 +76,7 @@ class _MineModalState extends State<MineModal> with TickerProviderStateMixin {
 		);
 
 		return ListTile(
-			leading: Image.asset(svgAsset.replaceAll('.svg', '.png'), width: 28, height: 28, color: Theme.of(context).colorScheme.onSurface),
+			leading: Image.asset(imageAsset, width: 28, height: 28, color: Theme.of(context).colorScheme.onSurface),
 			title: Text(label),
 			subtitle: Text('1 H • $chancePct% chance'),
 			trailing: canMine

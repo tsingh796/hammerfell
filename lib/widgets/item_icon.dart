@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 class ItemIcon extends StatelessWidget {
   final String type;
@@ -38,7 +37,7 @@ class ItemIcon extends StatelessWidget {
       case 'gold_ingot':
         return 'assets/images/gold_ingot.png';
       default:
-        return 'assets/images/unknown_ore.png';
+        return 'assets/images/stone.png'; // Use stone as fallback for unknown items
     }
   }
 

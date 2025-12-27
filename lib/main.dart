@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:math';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/foundation.dart';
 import 'utils/backpack_manager.dart';
 import 'dart:convert';
@@ -182,8 +181,14 @@ class _HomePageState extends State<HomePage> {
         return 'assets/images/stone.png';
       case 'coal':
         return 'assets/images/coal.png';
+      case 'copper_ingot':
+        return 'assets/images/copper_ingot.png';
+      case 'iron_ingot':
+        return 'assets/images/iron_ingot.png';
+      case 'gold_ingot':
+        return 'assets/images/gold_ingot.png';
       default:
-        return 'assets/images/unknown_ore.png';
+        return 'assets/images/stone.png'; // Use stone as fallback for unknown items
     }
   }
 
@@ -912,9 +917,13 @@ class _HomePageState extends State<HomePage> {
                                                 mainAxisAlignment: MainAxisAlignment.center,
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                    Image.asset(_oreAsset(slot['type']), width: 20, height: 20),
+                                                  Flexible(
+                                                    child: Image.asset(_oreAsset(slot['type']), width: 20, height: 20),
+                                                  ),
                                                   const SizedBox(width: 4),
-                                                  Text('${slot['count']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black)),
+                                                  Flexible(
+                                                    child: Text('${slot['count']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black)),
+                                                  ),
                                                 ],
                                               ),
                                             ),
@@ -1034,7 +1043,6 @@ class _HomePageState extends State<HomePage> {
                                       _pulseRow(ore, success);
                                       return success;
                                     },
-                                    onOpenFurnace: _openFurnace,
                                     mineOreChances: mineOreChances,
                                     pickOreForMine: (mineType) => pickOreForMine(mineOreChances, _rng, mineType),
                                   ),

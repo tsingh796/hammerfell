@@ -8,7 +8,6 @@ import '../modals/mine_search_modal.dart';
 
 import '../utils/random_utils.dart';
 import '../utils/backpack_manager.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../widgets/item_icon.dart';
 import '../widgets/furnace_widget.dart';
 import 'package:provider/provider.dart';
@@ -107,34 +106,6 @@ class MinePage extends StatefulWidget {
       await BackpackManager().load();
     }
 
-    Future<void> _loadMineState() async {
-      final prefs = await SharedPreferences.getInstance();
-      final lastMine = prefs.getString('minepage_lastMine');
-      if (lastMine != null && lastMine.isNotEmpty) {
-        try {
-          final decoded = jsonDecode(lastMine);
-          setState(() {
-            _hasEnteredMine = true;
-            _currentMine = decoded is Map<String, dynamic> && decoded.containsKey('oreType')
-                ? Mine(decoded['oreType'])
-                : null;
-          });
-        } catch (_) {
-          setState(() {
-            _hasEnteredMine = false;
-            _currentMine = null;
-          });
-        }
-      } else {
-        setState(() {
-          _hasEnteredMine = false;
-          _currentMine = null;
-        });
-      }
-      // Load global backpack
-      await BackpackManager().load();
-    }
-
     Future<void> _saveMineState() async {
       final prefs = await SharedPreferences.getInstance();
       // Save mine
@@ -145,21 +116,6 @@ class MinePage extends StatefulWidget {
       }
       // Save global backpack
       await BackpackManager().save();
-    }
-
-    String _oreAsset(String ore) {
-      switch (ore) {
-        case 'iron':
-          return 'assets/images/iron_ore.png';
-        case 'copper':
-          return 'assets/images/copper_ore.png';
-        case 'gold':
-          return 'assets/images/gold_ore.png';
-        case 'diamond':
-          return 'assets/images/diamond.png';
-        default:
-          return 'assets/images/stone.png';
-      }
     }
 
     String _crackAsset(int step, String ore) {
@@ -195,6 +151,7 @@ class MinePage extends StatefulWidget {
           borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
         ),
         builder: (c) => MineSearchModal(
+          currentMineType: _currentMine?.oreType,
           onEnterMine: (mine) {
             Navigator.of(c).pop();
             setState(() {
@@ -239,7 +196,6 @@ class MinePage extends StatefulWidget {
       if (_hasEnteredMine && _currentMine != null && _nextOre == null) {
         _nextOre = _pickNextOre();
       }
-      final bool showMiningUI = (_hasEnteredMine && _currentMine != null);
       return Scaffold(
         appBar: AppBar(title: const Text('Mine')),
         body: Stack(
@@ -532,4 +488,4 @@ class MinePage extends StatefulWidget {
         ),
       );
     }
-}
+  }

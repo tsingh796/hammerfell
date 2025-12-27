@@ -251,31 +251,34 @@ class _ChestWidgetState extends State<ChestWidget> {
                 onWillAccept: (data) => true,
                 onAccept: (data) {
                   // Move item within backpack
-                  if (data['from'] != null) {
+                  if (data['from'] != null && data['fromChest'] == null) {
                     backpackManager.moveItem(data['from'], index);
                   }
                   // Move from chest to backpack (move full stack)
                   else if (data['fromChest'] != null) {
-                    final chest = ChestManager().chest;
-                    int fromIdx = data['fromChest'];
-                    if (chest[fromIdx] != null) {
-                      int moveCount = chest[fromIdx]!['count'] ?? 1;
-                      String type = chest[fromIdx]!['type'];
-                      // Try to stack into backpack slot if same type
-                      if (slot != null && slot['type'] == type && slot['count'] < 64) {
-                        int space = 64 - (slot['count'] as int);
-                        int toMove = moveCount > space ? space : moveCount;
-                        slot['count'] += toMove;
-                        chest[fromIdx]!['count'] -= toMove;
-                        if (chest[fromIdx]!['count'] <= 0) chest[fromIdx] = null;
-                      } else if (slot == null) {
-                        backpack[index] = {'type': type, 'count': moveCount};
-                        chest[fromIdx] = null;
+                    setState(() {
+                      final chest = ChestManager().chest;
+                      int fromIdx = data['fromChest'];
+                      if (chest[fromIdx] != null) {
+                        int moveCount = chest[fromIdx]!['count'] ?? 1;
+                        String type = chest[fromIdx]!['type'];
+                        // Try to stack into backpack slot if same type
+                        if (slot != null && slot['type'] == type && slot['count'] < 64) {
+                          int space = 64 - (slot['count'] as int);
+                          int toMove = moveCount > space ? space : moveCount;
+                          slot['count'] += toMove;
+                          chest[fromIdx]!['count'] -= toMove;
+                          if (chest[fromIdx]!['count'] <= 0) chest[fromIdx] = null;
+                        } else if (slot == null) {
+                          backpack[index] = {'type': type, 'count': moveCount};
+                          chest[fromIdx] = null;
+                        }
+                        ChestManager().save();
+                        BackpackManager().save();
                       }
-                    }
+                    });
                   }
-                  BackpackManager().save();
-                  // No need for setState here; Consumer will rebuild
+                  // No need for BackpackManager().save() here for within-backpack moves; Consumer will rebuild
                 },
               );
             },
