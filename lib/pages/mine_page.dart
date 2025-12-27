@@ -243,16 +243,6 @@ class MinePage extends StatefulWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (_currentMine != null && _currentMine.oreType != null)
-                    Text('Entered ${_currentMine.oreType[0].toUpperCase()}${_currentMine.oreType.substring(1)} Mine!')
-                  else
-                    const Text('No mine entered.'),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: _searchMine,
-                    child: const Text('Search for Mine'),
-                  ),
-                  const SizedBox(height: 20),
                   // First mining button
                   GestureDetector(
                     onLongPressStart: (_mining || _nextOre == null)
@@ -435,18 +425,6 @@ class MinePage extends StatefulWidget {
                     Text(_mineResult!, style: TextStyle(fontWeight: FontWeight.bold)),
                   ],
                   const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        _mineResult = null;
-                        _nextOre = null;
-                        _hasEnteredMine = false;
-                        _currentMine = null;
-                      });
-                      _saveMineState();
-                    },
-                    child: const Text('Leave Mine'),
-                  ),
                   Padding(
                     padding: const EdgeInsets.only(top: 12, bottom: 12),
                     child: Column(
@@ -586,9 +564,7 @@ class MinePage extends StatefulWidget {
                   ElevatedButton(
                     onPressed: () async {
                       await _saveMineState();
-                      if (Navigator.canPop(context)) {
-                        Navigator.pop(context);
-                      }
+                      Navigator.pop(context);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,

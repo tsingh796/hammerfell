@@ -241,7 +241,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadConfig() async {
     try {
-      final String yamlString = await rootBundle.loadString('assets/config/game_config.yaml');
+      final String yamlString = await rootBundle.loadString('assets/config.yml');
       final dynamic yamlData = loadYaml(yamlString);
       if (yamlData != null && yamlData['mines'] != null) {
         final Map<dynamic, dynamic> chances = yamlData['mines'] as Map<dynamic, dynamic>;
