@@ -102,10 +102,12 @@ class _ChestWidgetState extends State<ChestWidget> {
 
   Widget _buildChestGrid() {
     final chest = ChestManager().chest;
-    return SizedBox(
-      height: 300,
-      child: GridView.builder(
-        shrinkWrap: true,
+    return Center(
+      child: SizedBox(
+        width: 256,
+        height: 256,
+        child: GridView.builder(
+          shrinkWrap: true,
         padding: EdgeInsets.zero,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -196,6 +198,7 @@ class _ChestWidgetState extends State<ChestWidget> {
           );
         },
       ),
+      ),
     );
   }
 
@@ -203,19 +206,21 @@ class _ChestWidgetState extends State<ChestWidget> {
     return Consumer<BackpackManager>(
       builder: (context, backpackManager, child) {
         final backpack = backpackManager.backpack;
-        return SizedBox(
-          height: 60,
-          child: GridView.builder(
-            shrinkWrap: true,
-            padding: EdgeInsets.zero,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 5,
-              mainAxisSpacing: 4,
-              crossAxisSpacing: 4,
-              childAspectRatio: 1,
-            ),
-            itemCount: 5,
+        return Center(
+          child: SizedBox(
+            width: 256,
+            height: 52,
+            child: GridView.builder(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 5,
+                mainAxisSpacing: 4,
+                crossAxisSpacing: 4,
+                childAspectRatio: 1,
+              ),
+              itemCount: 5,
             itemBuilder: (context, index) {
               final slot = backpack[index];
               return DragTarget<Map<String, dynamic>>(
@@ -282,6 +287,7 @@ class _ChestWidgetState extends State<ChestWidget> {
                 },
               );
             },
+          ),
           ),
         );
       },

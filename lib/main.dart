@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:yaml/yaml.dart';
 import 'widgets/furnace_widget.dart';
 import 'widgets/chest_widget.dart';
+import 'widgets/item_icon.dart';
 import 'modals/mine_modal.dart';
 import 'utils/color_utils.dart';
 // import 'modals/forest_modal.dart';
@@ -856,10 +857,12 @@ class _HomePageState extends State<HomePage> {
                     Consumer<BackpackManager>(
                       builder: (context, backpackManager, child) {
                         final backpack = backpackManager.backpack;
-                        return SizedBox(
-                          height: 60,
-                          child: ClipRect(
-                            child: GridView.builder(
+                        return Center(
+                          child: SizedBox(
+                            width: 256,
+                            height: 52,
+                            child: ClipRect(
+                              child: GridView.builder(
                               shrinkWrap: true,
                               padding: EdgeInsets.zero,
                               physics: const NeverScrollableScrollPhysics(),
@@ -891,9 +894,7 @@ class _HomePageState extends State<HomePage> {
                                                   mainAxisAlignment: MainAxisAlignment.center,
                                                   mainAxisSize: MainAxisSize.min,
                                                   children: [
-                                                    Image.asset(_oreAsset(slot['type']), width: 20, height: 20),
-                                                    const SizedBox(width: 4),
-                                                    Text('${slot['count']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
+                                                    ItemIcon(type: slot['type'], count: slot['count'], size: 20),
                                                   ],
                                                 ),
                                               ),
@@ -913,19 +914,7 @@ class _HomePageState extends State<HomePage> {
                                                 borderRadius: BorderRadius.circular(8),
                                               ),
                                               alignment: Alignment.center,
-                                              child: Row(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Flexible(
-                                                    child: Image.asset(_oreAsset(slot['type']), width: 20, height: 20),
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Flexible(
-                                                    child: Text('${slot['count']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black)),
-                                                  ),
-                                                ],
-                                              ),
+                                              child: ItemIcon(type: slot['type'], count: slot['count'], size: 20),
                                             ),
                                           )
                                         : Container(
@@ -945,6 +934,7 @@ class _HomePageState extends State<HomePage> {
                                   },
                                 );
                               },
+                            ),
                             ),
                           ),
                         );

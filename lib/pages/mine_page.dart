@@ -346,10 +346,12 @@ class MinePage extends StatefulWidget {
                         Consumer<BackpackManager>(
                           builder: (context, backpackManager, child) {
                             final backpack = backpackManager.backpack;
-                            return SizedBox(
-                              height: 60,
-                              child: ClipRect(
-                                child: GridView.builder(
+                            return Center(
+                              child: SizedBox(
+                                width: 256,
+                                height: 52,
+                                child: ClipRect(
+                                  child: GridView.builder(
                                   shrinkWrap: true,
                                   padding: EdgeInsets.zero,
                                   physics: const NeverScrollableScrollPhysics(),
@@ -435,9 +437,10 @@ class MinePage extends StatefulWidget {
                                   },
                                 ),
                               ),
-                            );
-                          },
-                        ),
+                            ),
+                          );
+                        },
+                      ),
                       ],
                     ),
                   ),

@@ -420,10 +420,12 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
     return Consumer<BackpackManager>(
       builder: (context, backpackManager, child) {
         final backpack = backpackManager.backpack;
-        return SizedBox(
-          height: 60,
-          child: GridView.builder(
-            shrinkWrap: true,
+        return Center(
+          child: SizedBox(
+            width: 256,
+            height: 52,
+            child: GridView.builder(
+              shrinkWrap: true,
             padding: EdgeInsets.zero,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -559,6 +561,7 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
                 },
               );
             },
+          ),
           ),
         );
       },
