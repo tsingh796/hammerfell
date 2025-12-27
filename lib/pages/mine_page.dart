@@ -55,10 +55,12 @@ class MinePage extends StatefulWidget {
     String? _mineResult;
     final FurnaceState _furnaceState = FurnaceState();
     final String _furnaceKey = 'furnace_mine';
+    late int _currentHammerfells; // Local tracking of hammerfells
 
     @override
     void initState() {
       super.initState();
+      _currentHammerfells = widget.hammerfells;
       _restoreMineState();
       // If no mine was entered previously, default to coal mine
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -230,7 +232,7 @@ class MinePage extends StatefulWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Center(
                 child: Text(
-                  'Hammerfells: ${widget.hammerfells}',
+                  'Hammerfells: $_currentHammerfells',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),
@@ -248,6 +250,12 @@ class MinePage extends StatefulWidget {
                     onLongPressStart: (_mining || _nextOre == null)
                         ? null
                         : (details) async {
+                            if (_currentHammerfells <= 0) {
+                              setState(() {
+                                _mineResult = 'Not enough hammerfells!';
+                              });
+                              return;
+                            }
                             setState(() {
                               _isPressed1 = true;
                               _mining = true;
@@ -262,15 +270,20 @@ class MinePage extends StatefulWidget {
                             });
                             await Future.delayed(const Duration(milliseconds: 400));
                             final oreType = _nextOre!;
-                            await widget.onMine(oreType);
+                            final success = await widget.onMine(oreType);
                             setState(() {
                               _mining = false;
                               _miningButtonIndex = null;
                               _crackStep = 0;
                               _isPressed1 = false;
-                              _mineResult = 'Mined $oreType!';
-                              _addToBackpack(oreType);
-                              _nextOre = _pickNextOre();
+                              if (success) {
+                                _mineResult = 'Mined $oreType!';
+                                _addToBackpack(oreType);
+                                _nextOre = _pickNextOre();
+                                _currentHammerfells--;
+                              } else {
+                                _mineResult = 'Not enough hammerfells!';
+                              }
                             });
                             _saveMineState();
                           },
@@ -336,6 +349,12 @@ class MinePage extends StatefulWidget {
                     onLongPressStart: (_mining || _nextOre == null)
                         ? null
                         : (details) async {
+                            if (_currentHammerfells <= 0) {
+                              setState(() {
+                                _mineResult = 'Not enough hammerfells!';
+                              });
+                              return;
+                            }
                             setState(() {
                               _isPressed2 = true;
                               _mining = true;
@@ -350,15 +369,20 @@ class MinePage extends StatefulWidget {
                             });
                             await Future.delayed(const Duration(milliseconds: 400));
                             final oreType = _nextOre!;
-                            await widget.onMine(oreType);
+                            final success = await widget.onMine(oreType);
                             setState(() {
                               _mining = false;
                               _miningButtonIndex = null;
                               _crackStep = 0;
                               _isPressed2 = false;
-                              _mineResult = 'Mined $oreType!';
-                              _addToBackpack(oreType);
-                              _nextOre = _pickNextOre();
+                              if (success) {
+                                _mineResult = 'Mined $oreType!';
+                                _addToBackpack(oreType);
+                                _nextOre = _pickNextOre();
+                                _currentHammerfells--;
+                              } else {
+                                _mineResult = 'Not enough hammerfells!';
+                              }
                             });
                             _saveMineState();
                           },

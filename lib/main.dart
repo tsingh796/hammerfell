@@ -322,56 +322,55 @@ class _HomePageState extends State<HomePage> {
     return oreChances.keys.first; // Fallback to first ore
   }
 
-  Future<bool> mineIronOre() async {
-    if (hammerfells >= miningCost) {
-      final success = _rng.nextDouble() < ironMineChance;
-      setState(() {
-        hammerfells -= miningCost;
-        if (success) ironOre += 1;
-        _saveGame();
-      });
-      return success;
+  Future<bool> mineOre(String oreType) async {
+    if (hammerfells < miningCost) return false;
+    
+    // Get mining chance for this ore type
+    double mineChance = 1.0; // Default 100% for stone, coal
+    switch (oreType) {
+      case 'iron':
+        mineChance = ironMineChance;
+        break;
+      case 'copper':
+        mineChance = copperMineChance;
+        break;
+      case 'gold':
+        mineChance = goldMineChance;
+        break;
+      case 'diamond':
+        mineChance = diamondMineChance;
+        break;
     }
-    return false;
-  }
-
-  Future<bool> mineCopperOre() async {
-    if (hammerfells >= miningCost) {
-      final success = _rng.nextDouble() < copperMineChance;
-      setState(() {
-        hammerfells -= miningCost;
-        if (success) copperOre += 1;
-        _saveGame();
-      });
-      return success;
-    }
-    return false;
-  }
-
-  Future<bool> mineGoldOre() async {
-    if (hammerfells >= miningCost) {
-      final success = _rng.nextDouble() < goldMineChance;
-      setState(() {
-        hammerfells -= miningCost;
-        if (success) goldOre += 1;
-        _saveGame();
-      });
-      return success;
-    }
-    return false;
-  }
-
-  Future<bool> mineDiamond() async {
-    if (hammerfells >= miningCost) {
-      final success = _rng.nextDouble() < diamondMineChance;
-      setState(() {
-        hammerfells -= miningCost;
-        if (success) diamond += 1;
-        _saveGame();
-      });
-      return success;
-    }
-    return false;
+    
+    final success = _rng.nextDouble() < mineChance;
+    setState(() {
+      hammerfells -= miningCost;
+      if (success) {
+        // Increment the appropriate ore counter
+        switch (oreType) {
+          case 'iron':
+            ironOre++;
+            break;
+          case 'copper':
+            copperOre++;
+            break;
+          case 'gold':
+            goldOre++;
+            break;
+          case 'diamond':
+            diamond++;
+            break;
+          case 'stone':
+            stone++;
+            break;
+          case 'coal':
+            coal++;
+            break;
+        }
+      }
+      _saveGame();
+    });
+    return true; // Always return true when hammerfells were consumed
   }
 
   void smeltIron() {
@@ -1002,36 +1001,7 @@ class _HomePageState extends State<HomePage> {
                                       'diamond': diamondMineChance,
                                     },
                                     onMine: (ore) async {
-                                      bool success = false;
-                                      if (ore == 'iron') {
-                                        success = await mineIronOre();
-                                      } else if (ore == 'copper') {
-                                        success = await mineCopperOre();
-                                      } else if (ore == 'gold') {
-                                        success = await mineGoldOre();
-                                      } else if (ore == 'diamond') {
-                                        success = await mineDiamond();
-                                      } else if (ore == 'stone') {
-                                        if (hammerfells >= miningCost) {
-                                          setState(() {
-                                            hammerfells -= miningCost;
-                                            stone++;
-                                            _saveGame();
-                                          });
-                                          success = true;
-                                        }
-                                      } else if (ore == 'coal') {
-                                        if (hammerfells >= miningCost) {
-                                          setState(() {
-                                            hammerfells -= miningCost;
-                                            coal++;
-                                            _saveGame();
-                                          });
-                                          success = true;
-                                        }
-                                      }
-                                      _pulseRow(ore, success);
-                                      return success;
+                                      return await mineOre(ore);
                                     },
                                     mineOreChances: mineOreChances,
                                     pickOreForMine: (mineType) => pickOreForMine(mineOreChances, _rng, mineType),

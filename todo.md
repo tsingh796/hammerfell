@@ -49,10 +49,10 @@
 
 I recommend implementing these features one by one in the following order, with testing after each:
 
-[started] Phase 1: Quick Wins (Low Risk, High Value)
-Show hammerfells and coins on minepage - Simple UI addition, test immediately
-Change mining button to show ore block image - Quick asset swap, easy to test
-Add one more mine button on minepage - Simple duplication of existing functionality
+[tested] Phase 1: Quick Wins (Low Risk, High Value)
+[tested]Show hammerfells and coins on minepage - Simple UI addition, test immediately
+[tested] Change mining button to show ore block image - Quick asset swap, easy to test
+[tested] Add one more mine button on minepage - Simple duplication of existing functionality
 
 Phase 2: Core Mechanics Enhancement
 Consume 1 hammerfell on each mine - Test economy balance carefully
