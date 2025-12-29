@@ -672,15 +672,22 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
       appBar: null,
-      body: SafeArea(
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/home_bg.png'),
+            fit: BoxFit.fill,
+          ),
+        ),
+        child: SafeArea(
           child: Container(
-            width: double.infinity,
-            height: double.infinity,
             padding: const EdgeInsets.all(16),
             child: Column(
-              children: [
-              // Top: Hammerfells and coins row
-              Row(
+                children: [
+                  // Top: Hammerfells and coins row
+                  Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -882,32 +889,43 @@ class _HomePageState extends State<HomePage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
+                        SizedBox(
+                          width: 56,
+                          height: 56,
+                          child: ElevatedButton(
                             onPressed: () {
                               // TODO: Implement Craft modal
                             },
-                            icon: const Icon(Icons.handyman),
-                            label: const Text('Craft'),
-                            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                            style: ElevatedButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: const Icon(Icons.handyman, size: 32),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Expanded(
-                          child: ElevatedButton.icon(
+                        SizedBox(
+                          height: 56,
+                          child: ElevatedButton(
                             onPressed: _openChestModal,
-                            icon: const Icon(Icons.inventory),
-                            label: const Text('Chest'),
-                            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                            style: ElevatedButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: Image.asset('assets/images/chest_close_button.png', fit: BoxFit.contain),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Expanded(
-                          child: ElevatedButton.icon(
+                        SizedBox(
+                          width: 56,
+                          height: 56,
+                          child: ElevatedButton(
                             onPressed: _openFurnace,
-                            icon: const Icon(Icons.local_fire_department),
-                            label: const Text('Furnace'),
-                            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                            style: ElevatedButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: Image.asset('assets/images/furnace_off_button.png', fit: BoxFit.contain),
                           ),
                         ),
                       ],
@@ -916,8 +934,10 @@ class _HomePageState extends State<HomePage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
+                        SizedBox(
+                          width: 56,
+                          height: 56,
+                          child: ElevatedButton(
                             onPressed: () async {
                               // Always update state after returning from MinePage
                               await Navigator.push(
@@ -941,23 +961,29 @@ class _HomePageState extends State<HomePage> {
                               );
                               setState(() {}); // Refresh state after returning
                             },
-                            icon: const Icon(Icons.construction),
-                            label: const Text('Mine'),
-                            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                            style: ElevatedButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: Image.asset('assets/images/mine_button.png', fit: BoxFit.contain),
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Expanded(
-                          child: ElevatedButton.icon(
+                        SizedBox(
+                          width: 56,
+                          height: 56,
+                          child: ElevatedButton(
                             onPressed: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(builder: (context) => const ForestPage()),
                               );
                             },
-                            icon: const Icon(Icons.park),
-                            label: const Text('Forest'),
-                            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                            style: ElevatedButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: Image.asset('assets/images/forest_button.png', fit: BoxFit.contain),
                           ),
                         ),
                       ],
@@ -965,7 +991,8 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
