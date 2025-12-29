@@ -1,15 +1,11 @@
 ## Bugs to fix
-- [test] Chest contents not persisting between sessions
 - [test] furnace: mine and homepage have identical furnace content, need a separate furnace instance for the different pages
 - Sometimes when moving from backpack, if dropped around the edges of backpack grid, the item is lost
-- looks like the probability of finding any mine-type is more or less equal
-- Home button in minepage not taking me back to homepage
+- Home button in minepage not taking me back to homepage first time
 - [test] furnace is not working. after adding ore and fuel, no option to start smelting is given and smelting does not start
-- mining button in minepage on presshold, image changes to red cross (like when not finding the image file)
 
 
 ## Feature additions
-- Show hammerfells and coins on minepage and consume 1 hammerfell on each mine
 - Implement to divide the stack into half on long press on a grid. Apply to all grids in backpack, chest and furnace
 
 ### Shelves

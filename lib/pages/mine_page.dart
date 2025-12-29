@@ -1,4 +1,6 @@
 
+import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -20,6 +22,103 @@ class Mine {
   
   Map<String, dynamic> toJson() => {'oreType': oreType};
 }
+
+// Custom clippers for trapezoid shapes
+class TopTrapezoidClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    path.moveTo(0, 0); // top-left (wider - ceiling receding)
+    path.lineTo(size.width, 0); // top-right (wider)
+    path.lineTo(size.width * 0.85, size.height); // bottom-right (narrower - matches front block width)
+    path.lineTo(size.width * 0.15, size.height); // bottom-left (narrower - matches front block width)
+    path.close();
+    return path;
+  }
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
+
+class BottomTrapezoidClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    path.moveTo(60, 0); // top-left (narrower - matches front block width)
+    path.lineTo(180, 0); // top-right (narrower - matches front block width)
+    path.lineTo(size.width, size.height); // bottom-right (wider - floor receding)
+    path.lineTo(0, size.height); // bottom-left (wider)
+    path.close();
+    return path;
+  }
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
+
+class LeftTopTrapezoidClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    // Left side of top front block - 120px inner edge, wider outer edge
+    path.moveTo(0, 0); // top-left (outer edge, wider)
+    path.lineTo(size.width, 0); // top-right (inner edge - 120px matches front block)
+    path.lineTo(size.width, size.height); // bottom-right (inner edge - 120px)
+    path.lineTo(size.width * 0.2, size.height); // bottom-left (outer edge, narrower - perspective)
+    path.close();
+    return path;
+  }
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
+
+class RightTopTrapezoidClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    // Right side of top front block - 120px inner edge, wider outer edge
+    path.moveTo(0, 0); // top-left (inner edge - 120px matches front block)
+    path.lineTo(size.width, 0); // top-right (outer edge, wider)
+    path.lineTo(size.width * 0.8, size.height); // bottom-right (outer edge, narrower - perspective)
+    path.lineTo(0, size.height); // bottom-left (inner edge - 120px)
+    path.close();
+    return path;
+  }
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
+
+class LeftBottomTrapezoidClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    // Left side of bottom front block - 120px inner edge, wider outer edge
+    path.moveTo(size.width * 0.2, 0); // top-left (outer edge, narrower - perspective)
+    path.lineTo(size.width, 0); // top-right (inner edge - 120px)
+    path.lineTo(size.width, size.height); // bottom-right (inner edge - 120px matches front block)
+    path.lineTo(0, size.height); // bottom-left (outer edge, wider)
+    path.close();
+    return path;
+  }
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
+
+class RightBottomTrapezoidClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    // Right side of bottom front block - 120px inner edge, wider outer edge
+    path.moveTo(0, 0); // top-left (inner edge - 120px)
+    path.lineTo(size.width * 0.8, 0); // top-right (outer edge, narrower - perspective)
+    path.lineTo(size.width, size.height); // bottom-right (outer edge, wider)
+    path.lineTo(0, size.height); // bottom-left (inner edge - 120px matches front block)
+    path.close();
+    return path;
+  }
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
+
+
 
 class MinePage extends StatefulWidget {
   final int hammerfells;
@@ -44,7 +143,8 @@ class MinePage extends StatefulWidget {
 }
 
   class _MinePageState extends State<MinePage> {
-    String? _nextOre;
+    String? _nextOre1; // Next ore for button 1
+    String? _nextOre2; // Next ore for button 2
     final Random _rng = Random();
     bool _hasEnteredMine = false;
     dynamic _currentMine;
@@ -57,6 +157,19 @@ class MinePage extends StatefulWidget {
     final FurnaceState _furnaceState = FurnaceState();
     final String _furnaceKey = 'furnace_mine';
     late int _currentHammerfells; // Local tracking of hammerfells
+    
+    // Tunnel surrounding blocks (8 blocks around player)
+    String _topBlock = 'stone';
+    String _bottomBlock = 'stone';
+    String _leftTopBlock = 'stone';
+    String _rightTopBlock = 'stone';
+    String _leftBottomBlock = 'stone';
+    String _rightBottomBlock = 'stone';
+    
+    // Track if each surrounding block is being mined
+    bool _miningSurrounding = false;
+    int _surroundingCrackStep = 0;
+    String? _surroundingBlockPosition;
 
     @override
     void initState() {
@@ -69,7 +182,9 @@ class MinePage extends StatefulWidget {
           setState(() {
             _hasEnteredMine = true;
             _currentMine = Mine('coal');
-            _nextOre = null;
+            _nextOre1 = null;
+            _nextOre2 = null;
+            _generateSurroundingBlocks();
           });
         }
       });
@@ -126,10 +241,9 @@ class MinePage extends StatefulWidget {
     String _crackAsset(int step, String ore) {
       if (step == 1) {
         return 'assets/images/crack1.png';
-      } else if (step == 2) {
+      } else {
         return 'assets/images/crack2.png';
       }
-      return '';
     }
 
     String _getOreBlockAsset(String oreType) {
@@ -153,13 +267,182 @@ class MinePage extends StatefulWidget {
       }
     }
 
+    String _getOreIconAsset(String oreType) {
+      switch (oreType) {
+        case 'coal':
+          return 'assets/images/coal.png';
+        case 'copper':
+          return 'assets/images/copper_ore.png';
+        case 'iron':
+          return 'assets/images/iron_ore.png';
+        case 'gold':
+          return 'assets/images/gold_ore.png';
+        case 'diamond':
+          return 'assets/images/diamond.png';
+        case 'stone':
+          return 'assets/images/stone.png';
+        default:
+          return 'assets/images/stone.png';
+      }
+    }
+
     String _pickNextOre() {
+      if (_currentMine == null) return 'stone';
       final oreType = _currentMine.oreType;
       final oreChances = widget.mineOreChances[oreType];
       if (oreChances == null || oreChances.isEmpty) return oreType;
       final oreNames = oreChances.keys.toList();
       final weights = oreNames.map((k) => oreChances[k] ?? 0.0).toList();
       return weightedRandomChoice(oreNames, weights, rng: _rng) ?? oreType;
+    }
+
+    void _generateSurroundingBlocks() {
+      // 20% chance for ore in surrounding blocks, 80% stone
+      _topBlock = _rng.nextDouble() < 0.2 ? _pickNextOre() : 'stone';
+      _bottomBlock = _rng.nextDouble() < 0.2 ? _pickNextOre() : 'stone';
+      _leftTopBlock = _rng.nextDouble() < 0.2 ? _pickNextOre() : 'stone';
+      _rightTopBlock = _rng.nextDouble() < 0.2 ? _pickNextOre() : 'stone';
+      _leftBottomBlock = _rng.nextDouble() < 0.2 ? _pickNextOre() : 'stone';
+      _rightBottomBlock = _rng.nextDouble() < 0.2 ? _pickNextOre() : 'stone';
+    }
+
+    void _mineSurroundingBlock(String position) {
+      if (_mining || _miningSurrounding) return;
+      
+      String blockType = 'stone';
+      switch (position) {
+        case 'top':
+          blockType = _topBlock;
+          break;
+        case 'bottom':
+          blockType = _bottomBlock;
+          break;
+        case 'leftTop':
+          blockType = _leftTopBlock;
+          break;
+        case 'rightTop':
+          blockType = _rightTopBlock;
+          break;
+        case 'leftBottom':
+          blockType = _leftBottomBlock;
+          break;
+        case 'rightBottom':
+          blockType = _rightBottomBlock;
+          break;
+      }
+      
+      if (blockType != 'stone') {
+        setState(() {
+          _miningSurrounding = true;
+          _surroundingBlockPosition = position;
+          _surroundingCrackStep = 1;
+        });
+        
+        Timer.periodic(const Duration(milliseconds: 200), (timer) {
+          if (!mounted || !_miningSurrounding || _surroundingBlockPosition != position) {
+            timer.cancel();
+            return;
+          }
+          setState(() {
+            _surroundingCrackStep++;
+            if (_surroundingCrackStep > 2) {
+              _surroundingCrackStep = 0;
+              timer.cancel();
+              _addToBackpack(blockType);
+              _miningSurrounding = false;
+              _surroundingBlockPosition = null;
+              
+              // Replace mined block with stone
+              switch (position) {
+                case 'top':
+                  _topBlock = 'stone';
+                  break;
+                case 'bottom':
+                  _bottomBlock = 'stone';
+                  break;
+                case 'leftTop':
+                  _leftTopBlock = 'stone';
+                  break;
+                case 'rightTop':
+                  _rightTopBlock = 'stone';
+                  break;
+                case 'leftBottom':
+                  _leftBottomBlock = 'stone';
+                  break;
+                case 'rightBottom':
+                  _rightBottomBlock = 'stone';
+                  break;
+              }
+            }
+          });
+        });
+      }
+    }
+
+    Widget _buildSurroundingBlock(String blockType, String position, double width, double height, double top, double left) {
+      CustomClipper<Path>? clipper;
+      switch (position) {
+        case 'top':
+          clipper = TopTrapezoidClipper();
+          break;
+        case 'bottom':
+          clipper = BottomTrapezoidClipper();
+          break;
+        case 'leftTop':
+          clipper = LeftTopTrapezoidClipper();
+          break;
+        case 'rightTop':
+          clipper = RightTopTrapezoidClipper();
+          break;
+        case 'leftBottom':
+          clipper = LeftBottomTrapezoidClipper();
+          break;
+        case 'rightBottom':
+          clipper = RightBottomTrapezoidClipper();
+          break;
+      }
+      
+      bool isMining = _miningSurrounding && _surroundingBlockPosition == position;
+      
+      return Positioned(
+        top: top,
+        left: left,
+        child: GestureDetector(
+          onLongPressStart: (LongPressStartDetails details) {
+            _mineSurroundingBlock(position);
+          },
+          onLongPressEnd: (LongPressEndDetails details) {
+            if (_miningSurrounding && _surroundingBlockPosition == position) {
+              setState(() {
+                _miningSurrounding = false;
+                _surroundingBlockPosition = null;
+                _surroundingCrackStep = 0;
+              });
+            }
+          },
+          child: ClipPath(
+            clipper: clipper,
+            child: Container(
+              width: width,
+              height: height,
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: AssetImage(_getOreBlockAsset(blockType)),
+                  fit: BoxFit.cover,
+                ),
+              ),
+              child: isMining && _surroundingCrackStep > 0
+                  ? Image.asset(
+                      _crackAsset(_surroundingCrackStep, blockType),
+                      width: width,
+                      height: height,
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+            ),
+          ),
+        ),
+      );
     }
 
     void _addToBackpack(String oreType) {
@@ -183,7 +466,8 @@ class MinePage extends StatefulWidget {
             setState(() {
               _hasEnteredMine = true;
               _currentMine = mine;
-              _nextOre = null;
+              _nextOre1 = null;
+              _nextOre2 = null;
             });
             _saveMineState();
           },
@@ -219,8 +503,13 @@ class MinePage extends StatefulWidget {
 
     @override
     Widget build(BuildContext context) {
-      if (_hasEnteredMine && _currentMine != null && _nextOre == null) {
-        _nextOre = _pickNextOre();
+      if (_hasEnteredMine && _currentMine != null) {
+        if (_nextOre1 == null) {
+          _nextOre1 = _pickNextOre();
+        }
+        if (_nextOre2 == null) {
+          _nextOre2 = _pickNextOre();
+        }
       }
       final String mineTitle = _currentMine != null 
           ? '${_currentMine.oreType[0].toUpperCase()}${_currentMine.oreType.substring(1)} Mine'
@@ -242,66 +531,78 @@ class MinePage extends StatefulWidget {
         ),
         body: Stack(
           children: [
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // First mining button
-                  GestureDetector(
-                    onLongPressStart: (_mining || _nextOre == null)
-                        ? null
-                        : (details) async {
-                            if (_currentHammerfells <= 0) {
-                              setState(() {
-                                _mineResult = 'Not enough hammerfells!';
-                              });
-                              return;
-                            }
-                            setState(() {
-                              _isPressed1 = true;
-                              _mining = true;
-                              _miningButtonIndex = 1;
-                              _mineResult = null;
-                              _crackStep = 1;
-                            });
-                            Feedback.forLongPress(context);
-                            await Future.delayed(const Duration(milliseconds: 400));
-                            setState(() {
-                              _crackStep = 2;
-                            });
-                            await Future.delayed(const Duration(milliseconds: 400));
-                            final oreType = _nextOre!;
-                            final success = await widget.onMine(oreType);
-                            setState(() {
-                              _mining = false;
-                              _miningButtonIndex = null;
-                              _crackStep = 0;
-                              _isPressed1 = false;
-                              if (success) {
-                                _mineResult = 'Mined $oreType!';
-                                _addToBackpack(oreType);
-                                _nextOre = _pickNextOre();
-                                _currentHammerfells--;
-                              } else {
-                                _mineResult = 'Not enough hammerfells!';
-                              }
-                            });
-                            _saveMineState();
-                          },
-                    onLongPressEnd: (_mining || _nextOre == null)
-                        ? null
-                        : (details) {
-                            if (_mining) {
-                              setState(() {
-                                _mining = false;
-                                _miningButtonIndex = null;
-                                _crackStep = 0;
-                                _isPressed1 = false;
-                              });
-                            }
-                          },
+            Stack(
+              children: [
+                // Surrounding blocks with trapezoid shapes
+                // Top block - sits directly above the two front blocks
+                _buildSurroundingBlock(_topBlock, 'top', 120, 60, 
+                  MediaQuery.of(context).size.height / 2 - 180, 
+                  MediaQuery.of(context).size.width / 2 - 60),
+                // Left top - sits to the left of top front block (block 1)
+                _buildSurroundingBlock(_leftTopBlock, 'leftTop', 60, 120, 
+                  MediaQuery.of(context).size.height / 2 - 120, 
+                  MediaQuery.of(context).size.width / 2 - 120),
+                // Right top - sits to the right of top front block (block 1)
+                _buildSurroundingBlock(_rightTopBlock, 'rightTop', 60, 120, 
+                  MediaQuery.of(context).size.height / 2 - 120, 
+                  MediaQuery.of(context).size.width / 2 + 60),
+                // Left bottom - sits to the left of bottom front block (block 2)
+                _buildSurroundingBlock(_leftBottomBlock, 'leftBottom', 60, 120, 
+                  MediaQuery.of(context).size.height / 2, 
+                  MediaQuery.of(context).size.width / 2 - 120),
+                // Right bottom - sits to the right of bottom front block (block 2)
+                _buildSurroundingBlock(_rightBottomBlock, 'rightBottom', 60, 120, 
+                  MediaQuery.of(context).size.height / 2, 
+                  MediaQuery.of(context).size.width / 2 + 60),
+                // Bottom block - sits directly below the two front blocks
+                _buildSurroundingBlock(_bottomBlock, 'bottom', 240, 120, 
+                  MediaQuery.of(context).size.height / 2 + 10, 
+                  MediaQuery.of(context).size.width / 2 - 120),
+                
+                // Main mining area centered
+                Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // First mining button
+                      GestureDetector(
+                    onLongPressStart: (LongPressStartDetails details) async {
+                      if (_currentMine == null || _mining || _nextOre1 == null) return;
+                      final oreType = _nextOre1!;
+                      setState(() {
+                        _mining = true;
+                        _isPressed1 = true;
+                        _miningButtonIndex = 1;
+                        _crackStep = 1;
+                      });
+                      Timer.periodic(const Duration(milliseconds: 200), (timer) {
+                        if (!mounted || !_mining || _miningButtonIndex != 1) {
+                          timer.cancel();
+                          return;
+                        }
+                        setState(() {
+                          _crackStep++;
+                          if (_crackStep > 2) {
+                            _crackStep = 0;
+                            timer.cancel();
+                            _addToBackpack(oreType);
+                            _mining = false;
+                            _nextOre1 = _pickNextOre();
+                            // Don't regenerate surrounding blocks yet
+                          }
+                        });
+                      });
+                    },
+                    onLongPressEnd: (LongPressEndDetails details) {
+                      if (_nextOre1 == null || _miningButtonIndex != 1) return;
+                      setState(() {
+                        _mining = false;
+                        _isPressed1 = false;
+                        _crackStep = 0;
+                      });
+                    },
                     onTapDown: (_) {
-                      if (!_mining && _nextOre != null) {
+                      if (!_mining && _nextOre1 != null) {
                         setState(() {
                           _isPressed1 = true;
                         });
@@ -325,12 +626,17 @@ class MinePage extends StatefulWidget {
                       width: 120,
                       height: 120,
                       decoration: BoxDecoration(
-                        image: _currentMine != null && _currentMine.oreType != null
+                        image: _nextOre1 != null
                             ? DecorationImage(
-                                image: AssetImage(_getOreBlockAsset(_currentMine.oreType)),
+                                image: AssetImage(_getOreBlockAsset(_nextOre1!)),
                                 fit: BoxFit.cover,
                               )
-                            : null,
+                            : _currentMine != null && _currentMine.oreType != null && _currentMine.oreType.isNotEmpty
+                                ? DecorationImage(
+                                    image: AssetImage(_getOreBlockAsset(_currentMine.oreType)),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
                         color: _currentMine == null ? Colors.grey[700] : null,
                         border: _isPressed1 ? Border.all(color: Colors.white, width: 2) : null,
                       ),
@@ -339,68 +645,52 @@ class MinePage extends StatefulWidget {
                         children: [
                           if (_currentMine == null)
                             const Icon(Icons.construction, size: 80, color: Colors.white),
-                          if (_crackStep > 0 && _nextOre != null && _miningButtonIndex == 1)
-                            Image.asset(_crackAsset(_crackStep, _nextOre!), width: 120, height: 120, fit: BoxFit.cover),
+                          if (_crackStep > 0 && _nextOre1 != null && _miningButtonIndex == 1)
+                            Image.asset(_crackAsset(_crackStep, _nextOre1!), width: 120, height: 120, fit: BoxFit.cover),
                         ],
                       ),
                     ),
                   ),
                   // Second mining button
                   GestureDetector(
-                    onLongPressStart: (_mining || _nextOre == null)
-                        ? null
-                        : (details) async {
-                            if (_currentHammerfells <= 0) {
-                              setState(() {
-                                _mineResult = 'Not enough hammerfells!';
-                              });
-                              return;
-                            }
-                            setState(() {
-                              _isPressed2 = true;
-                              _mining = true;
-                              _miningButtonIndex = 2;
-                              _mineResult = null;
-                              _crackStep = 1;
-                            });
-                            Feedback.forLongPress(context);
-                            await Future.delayed(const Duration(milliseconds: 400));
-                            setState(() {
-                              _crackStep = 2;
-                            });
-                            await Future.delayed(const Duration(milliseconds: 400));
-                            final oreType = _nextOre!;
-                            final success = await widget.onMine(oreType);
-                            setState(() {
-                              _mining = false;
-                              _miningButtonIndex = null;
-                              _crackStep = 0;
-                              _isPressed2 = false;
-                              if (success) {
-                                _mineResult = 'Mined $oreType!';
-                                _addToBackpack(oreType);
-                                _nextOre = _pickNextOre();
-                                _currentHammerfells--;
-                              } else {
-                                _mineResult = 'Not enough hammerfells!';
-                              }
-                            });
-                            _saveMineState();
-                          },
-                    onLongPressEnd: (_mining || _nextOre == null)
-                        ? null
-                        : (details) {
-                            if (_mining) {
-                              setState(() {
-                                _mining = false;
-                                _miningButtonIndex = null;
-                                _crackStep = 0;
-                                _isPressed2 = false;
-                              });
-                            }
-                          },
-                    onTapDown: (_) {
-                      if (!_mining && _nextOre != null) {
+                    onLongPressStart: (LongPressStartDetails details) async {
+                      if (_currentMine == null || _mining || _nextOre2 == null) return;
+                      final oreType = _nextOre2!;
+                      setState(() {
+                        _mining = true;
+                        _isPressed2 = true;
+                        _miningButtonIndex = 2;
+                        _crackStep = 1;
+                      });
+                      Timer.periodic(const Duration(milliseconds: 200), (timer) {
+                        if (!mounted || !_mining || _miningButtonIndex != 2) {
+                          timer.cancel();
+                          return;
+                        }
+                        setState(() {
+                          _crackStep++;
+                          if (_crackStep > 2) {
+                            _crackStep = 0;
+                            timer.cancel();
+                            _addToBackpack(oreType);
+                            _mining = false;
+                            _nextOre2 = _pickNextOre();
+                            // Regenerate surrounding blocks only when both blocks have been mined once
+                            _generateSurroundingBlocks();
+                          }
+                        });
+                      });
+                    },
+                    onLongPressEnd: (LongPressEndDetails details) {
+                      if (_nextOre2 == null || _miningButtonIndex != 2) return;
+                      setState(() {
+                        _mining = false;
+                        _isPressed2 = false;
+                        _crackStep = 0;
+                      });
+                    },
+                    onTapDown: (TapDownDetails details) {
+                      if (_nextOre2 != null) {
                         setState(() {
                           _isPressed2 = true;
                         });
@@ -424,12 +714,17 @@ class MinePage extends StatefulWidget {
                       width: 120,
                       height: 120,
                       decoration: BoxDecoration(
-                        image: _currentMine != null && _currentMine.oreType != null
+                        image: _nextOre2 != null
                             ? DecorationImage(
-                                image: AssetImage(_getOreBlockAsset(_currentMine.oreType)),
+                                image: AssetImage(_getOreBlockAsset(_nextOre2!)),
                                 fit: BoxFit.cover,
                               )
-                            : null,
+                            : _currentMine != null && _currentMine.oreType != null && _currentMine.oreType.isNotEmpty
+                                ? DecorationImage(
+                                    image: AssetImage(_getOreBlockAsset(_currentMine.oreType)),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
                         color: _currentMine == null ? Colors.grey[700] : null,
                         border: _isPressed2 ? Border.all(color: Colors.white, width: 2) : null,
                       ),
@@ -438,8 +733,8 @@ class MinePage extends StatefulWidget {
                         children: [
                           if (_currentMine == null)
                             const Icon(Icons.construction, size: 80, color: Colors.white),
-                          if (_crackStep > 0 && _nextOre != null && _miningButtonIndex == 2)
-                            Image.asset(_crackAsset(_crackStep, _nextOre!), width: 120, height: 120, fit: BoxFit.cover),
+                          if (_crackStep > 0 && _nextOre2 != null && _miningButtonIndex == 2)
+                            Image.asset(_crackAsset(_crackStep, _nextOre2!), width: 120, height: 120, fit: BoxFit.cover),
                         ],
                       ),
                     ),
@@ -477,6 +772,8 @@ class MinePage extends StatefulWidget {
                   ),
                 ],
               ),
+            ),
+              ],
             ),
             Positioned(
               left: 16,

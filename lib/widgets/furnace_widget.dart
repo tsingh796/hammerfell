@@ -15,6 +15,7 @@ class FurnaceState {
   bool isSmelting = false;
   int oreSecondsRemaining = 0;
   int fuelSecondsRemaining = 0;
+  int? lastUpdateTimestamp; // Track when furnace was last active
   Timer? _timer;
 
   FurnaceState();
@@ -26,6 +27,7 @@ class FurnaceState {
     'isSmelting': isSmelting,
     'oreSecondsRemaining': oreSecondsRemaining,
     'fuelSecondsRemaining': fuelSecondsRemaining,
+    'lastUpdateTimestamp': lastUpdateTimestamp,
   };
 
   static FurnaceState fromJson(Map<String, dynamic> json) {
@@ -36,6 +38,7 @@ class FurnaceState {
     state.isSmelting = json['isSmelting'] ?? false;
     state.oreSecondsRemaining = json['oreSecondsRemaining'] ?? 0;
     state.fuelSecondsRemaining = json['fuelSecondsRemaining'] ?? 0;
+    state.lastUpdateTimestamp = json['lastUpdateTimestamp'] as int?;
     return state;
   }
 
@@ -54,10 +57,79 @@ class FurnaceState {
         input = loaded.input;
         fuel = loaded.fuel;
         output = loaded.output;
-        isSmelting = false; // Always reset smelting on load
-        oreSecondsRemaining = 0;
+        isSmelting = loaded.isSmelting;
+        oreSecondsRemaining = loaded.oreSecondsRemaining;
         fuelSecondsRemaining = loaded.fuelSecondsRemaining;
+        lastUpdateTimestamp = loaded.lastUpdateTimestamp;
+        
+        // Calculate elapsed time and update state
+        if (lastUpdateTimestamp != null) {
+          final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+          final elapsed = now - lastUpdateTimestamp!;
+          if (elapsed > 0) {
+            _processElapsedTime(elapsed);
+          }
+        }
       } catch (_) {}
+    }
+  }
+
+  // Process elapsed time when furnace was inactive
+  void _processElapsedTime(int seconds) {
+    const int smeltTime = 2; // Must match the smelting time in startSmelting
+    
+    while (seconds > 0 && (fuelSecondsRemaining > 0 || (fuel != null && fuel!['count'] > 0))) {
+      // Burn fuel
+      if (fuelSecondsRemaining > 0) {
+        final burnTime = seconds < fuelSecondsRemaining ? seconds : fuelSecondsRemaining;
+        fuelSecondsRemaining -= burnTime;
+        seconds -= burnTime;
+        
+        // Process smelting during this burn time
+        if (isSmelting && input != null && input!['count'] > 0) {
+          while (burnTime >= oreSecondsRemaining && input != null && input!['count'] > 0) {
+            final timeToFinish = oreSecondsRemaining;
+            
+            // Complete this smelt
+            final result = _getSmeltedResult(input!);
+            if (result != null) {
+              if (output == null) {
+                output = result;
+              } else if (output!['type'] == result['type'] && output!['count'] < 64) {
+                output!['count'] += 1;
+              } else {
+                // Output full or different type, stop smelting
+                isSmelting = false;
+                oreSecondsRemaining = 0;
+                break;
+              }
+              
+              input!['count'] -= 1;
+              if (input!['count'] == 0) {
+                input = null;
+                isSmelting = false;
+                oreSecondsRemaining = 0;
+                break;
+              }
+              
+              // Start next smelt
+              oreSecondsRemaining = smeltTime;
+            }
+          }
+        }
+      }
+      
+      // If fuel ran out, try to consume next coal
+      if (fuelSecondsRemaining == 0 && fuel != null && fuel!['count'] > 0 && seconds > 0) {
+        fuelSecondsRemaining = 64;
+        fuel!['count'] -= 1;
+        if (fuel!['count'] == 0) fuel = null;
+      } else if (fuelSecondsRemaining == 0) {
+        // No more fuel, flame is out
+        isSmelting = false;
+        oreSecondsRemaining = 0;
+        break;
+      }
     }
   }
 
@@ -85,60 +157,108 @@ class FurnaceState {
       fuelSecondsRemaining = 64;
       fuel!['count'] -= 1;
       if (fuel!['count'] == 0) fuel = null;
+      lastUpdateTimestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      // Start the fuel burning timer
+      _startFuelTimer(onUpdate);
     }
     onUpdate();
   }
 
-  // Remove from output slot (collect to backpack)
-  Map<String, dynamic>? takeOutput() {
-    if (output != null && output!['count'] > 0) {
-      final out = {'type': output!['type'], 'count': output!['count']};
-      output = null;
-      return out;
-    }
-    return null;
+  // Start or continue the fuel burning timer
+  void _startFuelTimer(VoidCallback onUpdate) {
+    if (_timer != null && _timer!.isActive) return; // Already running
+    
+    lastUpdateTimestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      lastUpdateTimestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      
+      if (fuelSecondsRemaining > 0) {
+        // Decrement fuel
+        fuelSecondsRemaining--;
+        
+        // If smelting, also decrement ore time
+        if (isSmelting && fuelSecondsRemaining >= 0) {
+          oreSecondsRemaining--;
+        }
+        
+        onUpdate();
+        
+        // Check if ore finished smelting
+        if (isSmelting && oreSecondsRemaining <= 0 && fuelSecondsRemaining >= 0) {
+          final result = _getSmeltedResult(input!);
+          // Produce ingot
+          if (output == null) {
+            output = result;
+          } else if (result != null && output!['type'] == result['type'] && output!['count'] < 64) {
+            output!['count'] += 1;
+          }
+          
+          // Consume input ore
+          if (input != null) {
+            input!['count'] -= 1;
+            if (input!['count'] == 0) input = null;
+          }
+          
+          isSmelting = false;
+          oreSecondsRemaining = 0;
+          
+          // Auto-continue smelting if possible
+          if (input != null && input!['count'] > 0 && fuelSecondsRemaining > 0) {
+            isSmelting = true;
+            oreSecondsRemaining = 2; // Testing: 2 seconds
+          }
+        }
+        
+        // If smelting but input removed or output full, stop smelting
+        if (isSmelting && (input == null || (output != null && output!['count'] >= 64))) {
+          isSmelting = false;
+          oreSecondsRemaining = 0;
+        }
+        
+        // If fuel just hit 0, try to consume next coal
+        if (fuelSecondsRemaining == 0) {
+          if (fuel != null && fuel!['count'] > 0) {
+            fuelSecondsRemaining = 64;
+            fuel!['count'] -= 1;
+            if (fuel!['count'] == 0) fuel = null;
+          } else {
+            // No more fuel, timer will stop next tick
+          }
+        }
+      } else {
+        // Fuel completely out, stop timer
+        timer.cancel();
+        _timer = null;
+        if (isSmelting) {
+          isSmelting = false;
+          oreSecondsRemaining = 0;
+        }
+        onUpdate();
+      }
+    });
   }
 
   // Called to start smelting if possible
   void startSmelting(VoidCallback onUpdate, VoidCallback onComplete) {
-    if (input == null || input!['count'] == 0 || isSmelting || fuelSecondsRemaining < 8 || (output != null && output!['count'] >= 64)) return;
+    // Only start if: has input ore, not already smelting, flame is on
+    if (input == null || input!['count'] == 0 || isSmelting || fuelSecondsRemaining <= 0) return;
+    
+    // Check if output can accept result
+    final result = _getSmeltedResult(input!);
+    if (result != null) {
+      if (output != null && (output!['type'] != result['type'] || output!['count'] >= 64)) {
+        return; // Output full or different type
+      }
+    }
+    
     isSmelting = true;
-    oreSecondsRemaining = 2;
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      oreSecondsRemaining--;
-      fuelSecondsRemaining--;
-      onUpdate();
-      // If fuel runs out, try to burn next coal
-      if (fuelSecondsRemaining == 0 && fuel != null && fuel!['count'] > 0) {
-        fuelSecondsRemaining = 64;
-        fuel!['count'] -= 1;
-        if (fuel!['count'] == 0) fuel = null;
-      }
-      // Stop if any stop condition met
-      if (oreSecondsRemaining <= 0) {
-        // Only smelt if output slot is not full
-        if (output == null) {
-          output = _getSmeltedResult(input!);
-        } else if (output!['count'] < 64) {
-          output!['count'] += 1;
-        }
-        input!['count'] -= 1;
-        if (input!['count'] == 0) input = null;
-        timer.cancel();
-        isSmelting = false;
-        onComplete();
-        // Auto-continue if possible
-        if (input != null && input!['count'] > 0 && fuelSecondsRemaining >= 8 && (output == null || output!['count'] < 64)) {
-          startSmelting(onUpdate, onComplete);
-        }
-      }
-      // Stop if fuel runs out or output is full or input is empty
-      if (fuelSecondsRemaining < 8 || input == null || (output != null && output!['count'] >= 64)) {
-        timer.cancel();
-        isSmelting = false;
-        onComplete();
-      }
-    });
+    oreSecondsRemaining = 2; // Testing: 2 seconds (change to 8 for production)
+    
+    // Ensure fuel timer is running
+    if (_timer == null || !_timer!.isActive) {
+      _startFuelTimer(onUpdate);
+    }
   }
 
   void stopSmelting() {
@@ -197,13 +317,7 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
             // Input slot (ore)
             _buildSlot(furnace.input, 'Input',
               onAccept: (item) {
-                setState(() {
-                  if (item['type'] == 'copper' || item['type'] == 'iron' || item['type'] == 'gold') {
-                    int count = item['count'] ?? 1;
-                    furnace.addOre(item, count, () {});
-                    widget.onStateChanged();
-                  }
-                });
+                // Handled by DragTarget onAccept below
               },
               acceptTypes: ['copper', 'iron', 'gold'],
               count: furnace.input != null ? furnace.input!['count'] : 0,
@@ -257,13 +371,7 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
             // Fuel slot
             _buildSlot(furnace.fuel, 'Fuel',
               onAccept: (item) {
-                if (item['type'] == 'coal') {
-                  setState(() {
-                    int count = item['count'] ?? 1;
-                    furnace.addCoal(count, () {});
-                    widget.onStateChanged();
-                  });
-                }
+                // Handled by DragTarget onAccept below
               },
               acceptTypes: ['coal'],
               isFuel: false,
@@ -282,11 +390,11 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
         if (!furnace.isSmelting && furnace.input != null && furnace.input!['count'] > 0)
           Column(
             children: [
-              if (furnace.fuelSecondsRemaining < 8)
-                const Text('Need at least 8s of fuel to start smelting', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              if (furnace.fuelSecondsRemaining <= 0)
+                const Text('Need fuel to start smelting', style: TextStyle(fontSize: 12, color: Colors.grey)),
               if (furnace.output != null && furnace.output!['count'] >= 64)
                 const Text('Output is full, remove items first', style: TextStyle(fontSize: 12, color: Colors.grey)),
-              if (furnace.fuelSecondsRemaining >= 8 && (furnace.output == null || furnace.output!['count'] < 64))
+              if (furnace.fuelSecondsRemaining > 0 && (furnace.output == null || furnace.output!['count'] < 64))
                 ElevatedButton(
                   onPressed: () {
                     setState(() {
@@ -399,6 +507,14 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
               } else if (widget.furnaceState.fuel == null && moveCount > 0) {
                 widget.furnaceState.fuel = {'type': type, 'count': moveCount};
                 actuallyMoved = moveCount;
+              }
+              // Start burning fuel if not already burning
+              if (actuallyMoved > 0 && widget.furnaceState.fuelSecondsRemaining <= 0 && widget.furnaceState.fuel != null && widget.furnaceState.fuel!['count'] > 0) {
+                widget.furnaceState.fuelSecondsRemaining = 64;
+                widget.furnaceState.fuel!['count'] -= 1;
+                if (widget.furnaceState.fuel!['count'] == 0) widget.furnaceState.fuel = null;
+                widget.furnaceState.lastUpdateTimestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+                widget.furnaceState._startFuelTimer(() => setState(() {}));
               }
             }
             if (actuallyMoved > 0) {
