@@ -55,10 +55,11 @@ Phase 2: Core Mechanics Enhancement
 [tested] Stack splitting on long press - Complex interaction change, needs thorough testing across all grids
 [deffered] implement stack split in chest and furnace
 
-[tested] Phase 3: Shelves System (Related Changes)
+[tested] Phase 3: Shelves System (Related Changes) ✅
 [tested] Refactor ore/ingot grids to shelves - Rename and restructure
 [tested] Implement unlimited stack shelves - New grid behavior
 [tested] Shelf ↔ backpack transfer system - New interaction pattern (drag and drop enabled)
+[tested] Left shelf ↔ right shelf transfers - Cross-shelf item movement
 
 Phase 4: Mine Expansion (Related Features)
 Add mine-specific chest - New persistence instance
