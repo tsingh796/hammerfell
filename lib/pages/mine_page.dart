@@ -30,8 +30,8 @@ class TopTrapezoidClipper extends CustomClipper<Path> {
     final path = Path();
     path.moveTo(0, 0); // top-left (wider - ceiling receding)
     path.lineTo(size.width, 0); // top-right (wider)
-    path.lineTo(size.width * 0.85, size.height); // bottom-right (narrower - matches front block width)
-    path.lineTo(size.width * 0.15, size.height); // bottom-left (narrower - matches front block width)
+    path.lineTo(180, size.height); // bottom-right (narrower - matches front block width)
+    path.lineTo(60, size.height); // bottom-left (narrower - matches front block width)
     path.close();
     return path;
   }
@@ -60,9 +60,9 @@ class LeftTopTrapezoidClipper extends CustomClipper<Path> {
     final path = Path();
     // Left side of top front block - 120px inner edge, wider outer edge
     path.moveTo(0, 0); // top-left (outer edge, wider)
-    path.lineTo(size.width, 0); // top-right (inner edge - 120px matches front block)
+    path.lineTo(size.width, 70); // top-right (inner edge - 120px matches front block)
     path.lineTo(size.width, size.height); // bottom-right (inner edge - 120px)
-    path.lineTo(size.width * 0.2, size.height); // bottom-left (outer edge, narrower - perspective)
+    path.lineTo(0, size.height); // bottom-left (outer edge, narrower - perspective)
     path.close();
     return path;
   }
@@ -75,9 +75,9 @@ class RightTopTrapezoidClipper extends CustomClipper<Path> {
   Path getClip(Size size) {
     final path = Path();
     // Right side of top front block - 120px inner edge, wider outer edge
-    path.moveTo(0, 0); // top-left (inner edge - 120px matches front block)
+    path.moveTo(0, 70); // top-left (inner edge - 120px matches front block)
     path.lineTo(size.width, 0); // top-right (outer edge, wider)
-    path.lineTo(size.width * 0.8, size.height); // bottom-right (outer edge, narrower - perspective)
+    path.lineTo(size.width, size.height); // bottom-right (outer edge, narrower - perspective)
     path.lineTo(0, size.height); // bottom-left (inner edge - 120px)
     path.close();
     return path;
@@ -91,9 +91,9 @@ class LeftBottomTrapezoidClipper extends CustomClipper<Path> {
   Path getClip(Size size) {
     final path = Path();
     // Left side of bottom front block - 120px inner edge, wider outer edge
-    path.moveTo(size.width * 0.2, 0); // top-left (outer edge, narrower - perspective)
+    path.moveTo(0, 0); // top-left (outer edge, narrower - perspective)
     path.lineTo(size.width, 0); // top-right (inner edge - 120px)
-    path.lineTo(size.width, size.height); // bottom-right (inner edge - 120px matches front block)
+    path.lineTo(size.width, 120); // bottom-right (inner edge - 120px matches front block)
     path.lineTo(0, size.height); // bottom-left (outer edge, wider)
     path.close();
     return path;
@@ -108,9 +108,9 @@ class RightBottomTrapezoidClipper extends CustomClipper<Path> {
     final path = Path();
     // Right side of bottom front block - 120px inner edge, wider outer edge
     path.moveTo(0, 0); // top-left (inner edge - 120px)
-    path.lineTo(size.width * 0.8, 0); // top-right (outer edge, narrower - perspective)
+    path.lineTo(size.width, 0); // top-right (outer edge, narrower - perspective)
     path.lineTo(size.width, size.height); // bottom-right (outer edge, wider)
-    path.lineTo(0, size.height); // bottom-left (inner edge - 120px matches front block)
+    path.lineTo(0, 120); // bottom-left (inner edge - 120px matches front block)
     path.close();
     return path;
   }
@@ -535,28 +535,28 @@ class MinePage extends StatefulWidget {
               children: [
                 // Surrounding blocks with trapezoid shapes
                 // Top block - sits directly above the two front blocks
-                _buildSurroundingBlock(_topBlock, 'top', 120, 60, 
-                  MediaQuery.of(context).size.height / 2 - 180, 
-                  MediaQuery.of(context).size.width / 2 - 60),
+                _buildSurroundingBlock(_topBlock, 'top', 240, 70,
+                  MediaQuery.of(context).size.height / 2 - 299,
+                  MediaQuery.of(context).size.width / 2 - 120),
                 // Left top - sits to the left of top front block (block 1)
-                _buildSurroundingBlock(_leftTopBlock, 'leftTop', 60, 120, 
-                  MediaQuery.of(context).size.height / 2 - 120, 
+                _buildSurroundingBlock(_leftTopBlock, 'leftTop', 60, 190, 
+                  MediaQuery.of(context).size.height / 2 - 300, 
                   MediaQuery.of(context).size.width / 2 - 120),
                 // Right top - sits to the right of top front block (block 1)
-                _buildSurroundingBlock(_rightTopBlock, 'rightTop', 60, 120, 
-                  MediaQuery.of(context).size.height / 2 - 120, 
+                _buildSurroundingBlock(_rightTopBlock, 'rightTop', 60, 190,
+                  MediaQuery.of(context).size.height / 2 - 300,
                   MediaQuery.of(context).size.width / 2 + 60),
                 // Left bottom - sits to the left of bottom front block (block 2)
-                _buildSurroundingBlock(_leftBottomBlock, 'leftBottom', 60, 120, 
-                  MediaQuery.of(context).size.height / 2, 
+                _buildSurroundingBlock(_leftBottomBlock, 'leftBottom', 60, 190,
+                  MediaQuery.of(context).size.height / 2 - 110,
                   MediaQuery.of(context).size.width / 2 - 120),
                 // Right bottom - sits to the right of bottom front block (block 2)
-                _buildSurroundingBlock(_rightBottomBlock, 'rightBottom', 60, 120, 
-                  MediaQuery.of(context).size.height / 2, 
+                _buildSurroundingBlock(_rightBottomBlock, 'rightBottom', 60, 190,
+                  MediaQuery.of(context).size.height / 2 - 110,
                   MediaQuery.of(context).size.width / 2 + 60),
                 // Bottom block - sits directly below the two front blocks
-                _buildSurroundingBlock(_bottomBlock, 'bottom', 240, 120, 
-                  MediaQuery.of(context).size.height / 2 + 10, 
+                _buildSurroundingBlock(_bottomBlock, 'bottom', 240, 70,
+                  MediaQuery.of(context).size.height / 2 + 10,
                   MediaQuery.of(context).size.width / 2 - 120),
                 
                 // Main mining area centered
