@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'utils/backpack_manager.dart';
+import 'utils/shelf_manager.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:yaml/yaml.dart';
@@ -12,6 +13,7 @@ import 'widgets/furnace_widget.dart';
 import 'widgets/chest_widget.dart';
 import 'widgets/item_icon.dart';
 import 'widgets/inventory_grid_with_splitting.dart';
+import 'widgets/shelf_grid.dart';
 import 'modals/mine_modal.dart';
 import 'utils/color_utils.dart';
 // import 'modals/forest_modal.dart';
@@ -79,22 +81,44 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _loadConfig();
     BackpackManager().load();
+    ShelfManager().load();
     _homeFurnaceState = FurnaceState();
     _homeFurnaceState!.load(_homeFurnaceKey).then((_) {
       setState(() {});
     });
-    SharedPreferences.getInstance().then((prefs) {
+    SharedPreferences.getInstance().then((prefs) async {
+      // Load old ore/ingot values for migration
+      final oldIronOre = prefs.getInt('ironOre') ?? 0;
+      final oldCopperOre = prefs.getInt('copperOre') ?? 0;
+      final oldGoldOre = prefs.getInt('goldOre') ?? 0;
+      final oldDiamond = prefs.getInt('diamond') ?? 0;
+      final oldCoal = prefs.getInt('coal') ?? 0;
+      final oldStone = prefs.getInt('stone') ?? 0;
+      final oldIronIngot = prefs.getInt('ironIngot') ?? 0;
+      final oldCopperIngot = prefs.getInt('copperIngot') ?? 0;
+      final oldGoldIngot = prefs.getInt('goldIngot') ?? 0;
+      
+      // Migrate old data to shelves if shelves are empty
+      final needsMigration = prefs.getBool('shelves_migrated') != true;
+      if (needsMigration) {
+        await _migrateToShelves(
+          oldIronOre, oldCopperOre, oldGoldOre, oldDiamond, oldCoal, oldStone,
+          oldIronIngot, oldCopperIngot, oldGoldIngot
+        );
+        await prefs.setBool('shelves_migrated', true);
+      }
+      
       setState(() {
         hammerfells = prefs.getInt('hammerfells') ?? 10;
-        ironOre = prefs.getInt('ironOre') ?? 0;
-        copperOre = prefs.getInt('copperOre') ?? 0;
-        goldOre = prefs.getInt('goldOre') ?? 0;
-        diamond = prefs.getInt('diamond') ?? 0;
-        coal = prefs.getInt('coal') ?? 0;
-        stone = prefs.getInt('stone') ?? 0;
-        ironIngot = prefs.getInt('ironIngot') ?? 0;
-        copperIngot = prefs.getInt('copperIngot') ?? 0;
-        goldIngot = prefs.getInt('goldIngot') ?? 0;
+        ironOre = oldIronOre;
+        copperOre = oldCopperOre;
+        goldOre = oldGoldOre;
+        diamond = oldDiamond;
+        coal = oldCoal;
+        stone = oldStone;
+        ironIngot = oldIronIngot;
+        copperIngot = oldCopperIngot;
+        goldIngot = oldGoldIngot;
         copperCoins = prefs.getInt('copperCoins') ?? 0;
         silverCoins = prefs.getInt('silverCoins') ?? 0;
         goldCoins = prefs.getInt('goldCoins') ?? 0;
@@ -117,6 +141,162 @@ class _HomePageState extends State<HomePage> {
         }
       }
     });
+  }
+
+  Future<void> _migrateToShelves(int ironOre, int copperOre, int goldOre, int diamond, int coal, int stone,
+      int ironIngot, int copperIngot, int goldIngot) async {
+    final shelfMgr = ShelfManager();
+    
+    // Migrate ores to left shelf
+    if (ironOre > 0) shelfMgr.leftShelf[0] = {'type': 'iron_ore', 'count': ironOre};
+    if (copperOre > 0) shelfMgr.leftShelf[1] = {'type': 'copper_ore', 'count': copperOre};
+    if (goldOre > 0) shelfMgr.leftShelf[2] = {'type': 'gold_ore', 'count': goldOre};
+    if (diamond > 0) shelfMgr.leftShelf[3] = {'type': 'diamond', 'count': diamond};
+    // coal and stone can go to slot 4 or beyond if needed
+    
+    // Migrate ingots to right shelf
+    if (ironIngot > 0) shelfMgr.rightShelf[0] = {'type': 'iron_ingot', 'count': ironIngot};
+    if (copperIngot > 0) shelfMgr.rightShelf[1] = {'type': 'copper_ingot', 'count': copperIngot};
+    if (goldIngot > 0) shelfMgr.rightShelf[2] = {'type': 'gold_ingot', 'count': goldIngot};
+    
+    await shelfMgr.save();
+  }
+
+  /// Handle transfer from backpack to shelf
+  void _handleBackpackToShelf(int fromIndex, int toIndex, bool isLeftShelf) {
+    final backpack = BackpackManager().backpack;
+    final shelf = isLeftShelf ? ShelfManager().leftShelf : ShelfManager().rightShelf;
+    
+    final fromSlot = backpack[fromIndex];
+    final toSlot = shelf[toIndex];
+    
+    if (fromSlot == null) return;
+    
+    if (toSlot == null) {
+      // Move to empty shelf slot
+      shelf[toIndex] = {...fromSlot}; // Copy the data
+      backpack[fromIndex] = null;
+    } else if (fromSlot['type'] == toSlot['type']) {
+      // Stack unlimited on shelf
+      toSlot['count'] = (toSlot['count'] as int) + (fromSlot['count'] as int);
+      backpack[fromIndex] = null;
+    } else {
+      // Swap
+      final temp = shelf[toIndex] != null ? {...shelf[toIndex]!} : null;
+      shelf[toIndex] = {...fromSlot}; // Copy backpack item
+      backpack[fromIndex] = temp;
+    }
+    
+    BackpackManager().save();
+    ShelfManager().save();
+    setState(() {});
+  }
+
+  /// Handle transfer from shelf to backpack (respect 64 cap)
+  void _handleShelfToBackpack(Map<String, dynamic> data, int toIndex) {
+    final fromIndex = data['from'] as int;
+    final sourceWidget = data['sourceWidget'] as String;
+    
+    // Determine which shelf
+    bool isLeftShelf = false;
+    List<Map<String, dynamic>?>? shelf;
+    
+    // Check both shelves to find the source
+    if (fromIndex < ShelfManager().leftShelf.length && 
+        ShelfManager().leftShelf[fromIndex]?['type'] == data['type']) {
+      isLeftShelf = true;
+      shelf = ShelfManager().leftShelf;
+    } else if (fromIndex < ShelfManager().rightShelf.length && 
+               ShelfManager().rightShelf[fromIndex]?['type'] == data['type']) {
+      isLeftShelf = false;
+      shelf = ShelfManager().rightShelf;
+    } else {
+      return; // Couldn't find source
+    }
+    
+    final backpack = BackpackManager().backpack;
+    final fromSlot = shelf[fromIndex];
+    final toSlot = backpack[toIndex];
+    
+    if (fromSlot == null) return;
+    
+    final itemType = fromSlot['type'] as String;
+    final itemCount = fromSlot['count'] as int;
+    
+    if (toSlot == null) {
+      // Move to empty backpack slot (cap at 64)
+      if (itemCount <= 64) {
+        backpack[toIndex] = {'type': itemType, 'count': itemCount};
+        shelf[fromIndex] = null;
+      } else {
+        backpack[toIndex] = {'type': itemType, 'count': 64};
+        fromSlot['count'] = itemCount - 64;
+      }
+    } else if (toSlot['type'] == itemType) {
+      // Stack in backpack (cap at 64)
+      final toCount = toSlot['count'] as int;
+      final available = 64 - toCount;
+      
+      if (available >= itemCount) {
+        toSlot['count'] = toCount + itemCount;
+        shelf[fromIndex] = null;
+      } else if (available > 0) {
+        toSlot['count'] = 64;
+        fromSlot['count'] = itemCount - available;
+      }
+      // else: no room, do nothing
+    } else {
+      // Swap different items
+      final temp = backpack[toIndex];
+      backpack[toIndex] = {'type': itemType, 'count': itemCount > 64 ? 64 : itemCount};
+      if (itemCount > 64) {
+        fromSlot['count'] = itemCount - 64;
+      } else {
+        shelf[fromIndex] = temp;
+      }
+    }
+    
+    BackpackManager().save();
+    ShelfManager().save();
+    setState(() {});
+  }
+
+  // Handle cross-shelf transfers (left ↔ right)
+  void _handleCrossShelfTransfer(int fromIndex, int toIndex, {required String fromShelf, required bool toLeft}) {
+    final shelfManager = ShelfManager();
+    final sourceShelf = fromShelf == 'left' ? shelfManager.leftShelf : shelfManager.rightShelf;
+    final targetShelf = toLeft ? shelfManager.leftShelf : shelfManager.rightShelf;
+    
+    final sourceItem = sourceShelf[fromIndex];
+    if (sourceItem == null) return;
+
+    // Create a copy of the item being moved
+    final itemCopy = {...sourceItem};
+    
+    if (targetShelf[toIndex] == null) {
+      // Target is empty, just move the item
+      targetShelf[toIndex] = itemCopy;
+      sourceShelf[fromIndex] = null;
+    } else {
+      // Target has an item - check if we can stack
+      final targetItem = targetShelf[toIndex]!;
+      if (targetItem['type'] == itemCopy['type']) {
+        // Same type, stack them (unlimited stacking)
+        targetShelf[toIndex] = {
+          'type': targetItem['type'],
+          'count': (targetItem['count'] ?? 1) + (itemCopy['count'] ?? 1),
+        };
+        sourceShelf[fromIndex] = null;
+      } else {
+        // Different types, swap them
+        final targetCopy = {...targetItem};
+        targetShelf[toIndex] = itemCopy;
+        sourceShelf[fromIndex] = targetCopy;
+      }
+    }
+    
+    shelfManager.save();
+    setState(() {});
   }
 
   void _openChestModal() {
@@ -347,25 +527,31 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       hammerfells -= miningCost;
       if (success) {
-        // Increment the appropriate ore counter
+        // Increment the appropriate ore counter (legacy)
         switch (oreType) {
           case 'iron':
             ironOre++;
+            ShelfManager().addItem('iron_ore');
             break;
           case 'copper':
             copperOre++;
+            ShelfManager().addItem('copper_ore');
             break;
           case 'gold':
             goldOre++;
+            ShelfManager().addItem('gold_ore');
             break;
           case 'diamond':
             diamond++;
+            ShelfManager().addItem('diamond');
             break;
           case 'stone':
             stone++;
+            ShelfManager().addItem('stone');
             break;
           case 'coal':
             coal++;
+            ShelfManager().addItem('coal');
             break;
         }
       }
@@ -380,6 +566,8 @@ class _HomePageState extends State<HomePage> {
         ironOre -= smeltIronCost;
         hammerfells -= 1;
         ironIngot += 1;
+        ShelfManager().removeItem('iron_ore', smeltIronCost);
+        ShelfManager().addItem('iron_ingot');
         _saveGame();
       });
     }
@@ -391,6 +579,8 @@ class _HomePageState extends State<HomePage> {
         copperOre -= smeltCopperCost;
         hammerfells -= 1;
         copperIngot += 1;
+        ShelfManager().removeItem('copper_ore', smeltCopperCost);
+        ShelfManager().addItem('copper_ingot');
         _saveGame();
       });
     }
@@ -402,6 +592,8 @@ class _HomePageState extends State<HomePage> {
         goldOre -= smeltGoldCost;
         hammerfells -= 1;
         goldIngot += 1;
+        ShelfManager().removeItem('gold_ore', smeltGoldCost);
+        ShelfManager().addItem('gold_ingot');
         _saveGame();
       });
     }
@@ -417,6 +609,7 @@ class _HomePageState extends State<HomePage> {
       ironIngot = 0;
       copperIngot = 0;
       goldIngot = 0;
+      ShelfManager().clear();
       copperCoins = 0;
       silverCoins = 0;
       goldCoins = 0;
@@ -730,60 +923,37 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ],
               ),
-              // Main content: Minecraft-style grids for ores and ingots
+              // Main content: Shelves for ores and ingots
               Expanded(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Left: Ores grid (5 rows x 1 column)
-                    SizedBox(
-                      width: 72,
-                      child: GridView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 1,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 0,
-                          childAspectRatio: 1,
-                        ),
-                        itemCount: 5,
-                        itemBuilder: (context, index) {
-                          // Order: iron, copper, gold, diamond, (empty)
-                          final ores = [
-                            {'name': 'Iron Ore', 'count': ironOre, 'asset': 'assets/images/iron_ore.png'},
-                            {'name': 'Copper Ore', 'count': copperOre, 'asset': 'assets/images/copper_ore.png'},
-                            {'name': 'Gold Ore', 'count': goldOre, 'asset': 'assets/images/gold_ore.png'},
-                            {'name': 'Diamond', 'count': diamond, 'asset': 'assets/images/diamond.png'},
-                          ];
-                          if (index < ores.length) {
-                            final ore = ores[index];
-                            return Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey, width: 2),
-                                color: Colors.black.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              alignment: Alignment.center,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Image.asset(ore['asset'] as String, width: 32, height: 32),
-                                  const SizedBox(height: 4),
-                                  Text('${ore['count']}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                            );
-                          } else {
-                            return Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey, width: 2),
-                                color: Colors.black.withOpacity(0.05),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            );
-                          }
-                        },
-                      ),
+                    // Left Shelf: Ores (5 rows x 1 column)
+                    ShelfGrid(
+                      shelfId: 'left',
+                      slots: ShelfManager().leftShelf,
+                      onMoveItem: (fromIndex, toIndex, {fromExternal = false, String? fromShelf}) {
+                        if (fromExternal) {
+                          // Handle items from backpack
+                          _handleBackpackToShelf(fromIndex, toIndex, true);
+                        } else if (fromShelf != null && fromShelf != 'left') {
+                          // Handle cross-shelf transfer (right to left)
+                          _handleCrossShelfTransfer(fromIndex, toIndex, fromShelf: fromShelf, toLeft: true);
+                        } else {
+                          // Internal move within left shelf
+                          ShelfManager().moveItem(true, fromIndex, toIndex);
+                        }
+                        setState(() {});
+                      },
+                      onSave: () {
+                        ShelfManager().save();
+                        setState(() {});
+                      },
+                      rows: 5,
+                      columns: 1,
+                      slotSize: 64,
+                      spacing: 8,
+                      acceptExternalItems: true,
                     ),
                     // Center: Modal area (just a placeholder now)
                     Expanded(
@@ -801,54 +971,32 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ),
-                    // Right: Ingots grid (5 rows x 1 column)
-                    SizedBox(
-                      width: 72,
-                      child: GridView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 1,
-                          mainAxisSpacing: 8,
-                          crossAxisSpacing: 0,
-                          childAspectRatio: 1,
-                        ),
-                        itemCount: 5,
-                        itemBuilder: (context, index) {
-                          // Order: iron, copper, gold, (empty, empty)
-                          final ingots = [
-                            {'name': 'Iron Ingot', 'count': ironIngot, 'asset': 'assets/images/iron_ingot.png'},
-                            {'name': 'Copper Ingot', 'count': copperIngot, 'asset': 'assets/images/copper_ingot.png'},
-                            {'name': 'Gold Ingot', 'count': goldIngot, 'asset': 'assets/images/gold_ingot.png'},
-                          ];
-                          if (index < ingots.length) {
-                            final ingot = ingots[index];
-                            return Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey, width: 2),
-                                color: Colors.black.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              alignment: Alignment.center,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Image.asset(ingot['asset'] as String, width: 32, height: 32),
-                                  const SizedBox(height: 4),
-                                  Text('${ingot['count']}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                            );
-                          } else {
-                            return Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey, width: 2),
-                                color: Colors.black.withOpacity(0.05),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            );
-                          }
-                        },
-                      ),
+                    // Right Shelf: Ingots (5 rows x 1 column)
+                    ShelfGrid(
+                      shelfId: 'right',
+                      slots: ShelfManager().rightShelf,
+                      onMoveItem: (fromIndex, toIndex, {fromExternal = false, String? fromShelf}) {
+                        if (fromExternal) {
+                          // Handle items from backpack
+                          _handleBackpackToShelf(fromIndex, toIndex, false);
+                        } else if (fromShelf != null && fromShelf != 'right') {
+                          // Handle cross-shelf transfer (left to right)
+                          _handleCrossShelfTransfer(fromIndex, toIndex, fromShelf: fromShelf, toLeft: false);
+                        } else {
+                          // Internal move within right shelf
+                          ShelfManager().moveItem(false, fromIndex, toIndex);
+                        }
+                        setState(() {});
+                      },
+                      onSave: () {
+                        ShelfManager().save();
+                        setState(() {});
+                      },
+                      rows: 5,
+                      columns: 1,
+                      slotSize: 64,
+                      spacing: 8,
+                      acceptExternalItems: true,
                     ),
                   ],
                 ),
@@ -871,6 +1019,7 @@ class _HomePageState extends State<HomePage> {
                             onMoveItem: (from, to) => backpackManager.moveItem(from, to),
                             onSplitStack: (index) => backpackManager.splitStack(index),
                             onSave: () => backpackManager.save(),
+                            onExternalDrop: (data, toIndex) => _handleShelfToBackpack(data, toIndex),
                             columns: 5,
                             rows: 1,
                           ),

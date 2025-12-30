@@ -11,6 +11,7 @@ class InventoryGridWithSplitting extends StatefulWidget {
   final Function(int fromIndex, int toIndex) onMoveItem;
   final Map<String, dynamic>? Function(int index) onSplitStack;
   final Function() onSave;
+  final Function(Map<String, dynamic> item, int toIndex)? onExternalDrop; // Handle drops from other widgets
   final int columns;
   final int rows;
   final double? width;
@@ -23,6 +24,7 @@ class InventoryGridWithSplitting extends StatefulWidget {
     required this.onMoveItem,
     required this.onSplitStack,
     required this.onSave,
+    this.onExternalDrop,
     this.columns = 5,
     this.rows = 1,
     this.width,
@@ -96,7 +98,7 @@ class _InventoryGridWithSplittingState extends State<InventoryGridWithSplitting>
                   builder: (context, candidateData, rejectedData) {
                     Widget slotWidget = slot != null
                         ? Draggable<Map<String, dynamic>>(
-                            data: {...slot, 'from': index},
+                            data: {...slot, 'from': index, 'sourceWidget': 'backpack'},
                             feedback: Material(
                               color: Colors.transparent,
                               child: Container(
@@ -206,7 +208,14 @@ class _InventoryGridWithSplittingState extends State<InventoryGridWithSplitting>
                   },
                   onWillAccept: (data) => data != null,
                   onAccept: (data) {
-                    widget.onMoveItem(data['from'] as int, index);
+                    // Check if this is from an external widget (like shelf)
+                    final isExternal = data['sourceWidget'] != 'backpack';
+                    
+                    if (isExternal && widget.onExternalDrop != null) {
+                      widget.onExternalDrop!(data, index);
+                    } else {
+                      widget.onMoveItem(data['from'] as int, index);
+                    }
                   },
                 );
               },
