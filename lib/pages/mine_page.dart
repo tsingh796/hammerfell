@@ -428,7 +428,7 @@ class MinePage extends StatefulWidget {
               decoration: BoxDecoration(
                 image: DecorationImage(
                   image: AssetImage(_getOreBlockAsset(blockType)),
-                  fit: BoxFit.cover,
+                  fit: BoxFit.fill,
                 ),
               ),
               child: isMining && _surroundingCrackStep > 0
