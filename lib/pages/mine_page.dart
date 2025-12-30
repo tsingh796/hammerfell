@@ -86,6 +86,79 @@ class RightTopTrapezoidClipper extends CustomClipper<Path> {
   bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }
 
+// Custom painter for trapezoid borders
+class TrapezoidBorderPainter extends CustomPainter {
+  final String position;
+  final Color color;
+  final double width;
+  
+  TrapezoidBorderPainter({
+    required this.position,
+    required this.color,
+    required this.width,
+  });
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width;
+    
+    final path = Path();
+    
+    switch (position) {
+      case 'top':
+        path.moveTo(0, 0);
+        path.lineTo(size.width, 0);
+        path.lineTo(180, size.height);
+        path.lineTo(60, size.height);
+        path.close();
+        break;
+      case 'bottom':
+        path.moveTo(60, 0);
+        path.lineTo(180, 0);
+        path.lineTo(size.width, size.height);
+        path.lineTo(0, size.height);
+        path.close();
+        break;
+      case 'leftTop':
+        path.moveTo(0, 0);
+        path.lineTo(size.width, 70);
+        path.lineTo(size.width, size.height);
+        path.lineTo(0, size.height);
+        path.close();
+        break;
+      case 'rightTop':
+        path.moveTo(0, 70);
+        path.lineTo(size.width, 0);
+        path.lineTo(size.width, size.height);
+        path.lineTo(0, size.height);
+        path.close();
+        break;
+      case 'leftBottom':
+        path.moveTo(0, 0);
+        path.lineTo(size.width, 0);
+        path.lineTo(size.width, 120);
+        path.lineTo(0, size.height);
+        path.close();
+        break;
+      case 'rightBottom':
+        path.moveTo(0, 0);
+        path.lineTo(size.width, 0);
+        path.lineTo(size.width, size.height);
+        path.lineTo(0, 120);
+        path.close();
+        break;
+    }
+    
+    canvas.drawPath(path, paint);
+  }
+  
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
 class LeftBottomTrapezoidClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
@@ -420,26 +493,38 @@ class MinePage extends StatefulWidget {
               });
             }
           },
-          child: ClipPath(
-            clipper: clipper,
-            child: Container(
-              width: width,
-              height: height,
-              decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: AssetImage(_getOreBlockAsset(blockType)),
-                  fit: BoxFit.fill,
+          child: Stack(
+            children: [
+              ClipPath(
+                clipper: clipper,
+                child: Container(
+                  width: width,
+                  height: height,
+                  decoration: BoxDecoration(
+                    image: DecorationImage(
+                      image: AssetImage(_getOreBlockAsset(blockType)),
+                      fit: BoxFit.fill,
+                    ),
+                  ),
+                  child: isMining && _surroundingCrackStep > 0
+                      ? Image.asset(
+                          _crackAsset(_surroundingCrackStep, blockType),
+                          width: width,
+                          height: height,
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                 ),
               ),
-              child: isMining && _surroundingCrackStep > 0
-                  ? Image.asset(
-                      _crackAsset(_surroundingCrackStep, blockType),
-                      width: width,
-                      height: height,
-                      fit: BoxFit.cover,
-                    )
-                  : null,
-            ),
+              CustomPaint(
+                size: Size(width, height),
+                painter: TrapezoidBorderPainter(
+                  position: position,
+                  color: isMining ? Colors.white : Colors.black,
+                  width: isMining ? 2 : 1,
+                ),
+              ),
+            ],
           ),
         ),
       );
