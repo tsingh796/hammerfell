@@ -61,9 +61,9 @@ class _MineSearchModalState extends State<MineSearchModal> {
     // Fallback to hardcoded if not available
     Map<String, double> mineTypeChances = {
       'coal': 0.45,
-      'copper_ore': 0.25,
-      'iron_ore': 0.15,
-      'gold_ore': 0.10,
+      'copper': 0.25,
+      'iron': 0.15,
+      'gold': 0.10,
       'diamond': 0.05,
     };
     

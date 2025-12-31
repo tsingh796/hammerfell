@@ -336,12 +336,16 @@ class MinePage extends StatefulWidget {
         case 'coal':
           return 'assets/images/coal_ore_block.png';
         case 'copper':
+        case 'copper_ore':
           return 'assets/images/copper_ore_block.png';
         case 'iron':
+        case 'iron_ore':
           return 'assets/images/iron_ore_block.png';
         case 'silver':
+        case 'silver_ore':
           return 'assets/images/silver_ore_block.png';
         case 'gold':
+        case 'gold_ore':
           return 'assets/images/gold_ore_block.png';
         case 'diamond':
           return 'assets/images/diamond_ore_block.png';
@@ -357,11 +361,17 @@ class MinePage extends StatefulWidget {
         case 'coal':
           return 'assets/images/coal.png';
         case 'copper':
+        case 'copper_ore':
           return 'assets/images/copper_ore.png';
         case 'iron':
+        case 'iron_ore':
           return 'assets/images/iron_ore.png';
         case 'gold':
+        case 'gold_ore':
           return 'assets/images/gold_ore.png';
+        case 'silver':
+        case 'silver_ore':
+          return 'assets/images/silver_ore.png';
         case 'diamond':
           return 'assets/images/diamond.png';
         case 'stone':
@@ -369,6 +379,15 @@ class MinePage extends StatefulWidget {
         default:
           return 'assets/images/stone.png';
       }
+    }
+
+    String _oreTypeToItemName(String oreType) {
+      // Ores from config already use correct item names (with _ore suffix for metal ores)
+      // Only need to handle mine types that might not have the suffix
+      if (oreType == 'copper' || oreType == 'iron' || oreType == 'gold' || oreType == 'silver') {
+        return '${oreType}_ore';
+      }
+      return oreType; // coal, diamond, stone, and already-suffixed names stay the same
     }
 
     String _pickNextOre() {
@@ -568,7 +587,9 @@ class MinePage extends StatefulWidget {
     }
 
     void _addToBackpack(String oreType) {
-      BackpackManager().addItem(oreType);
+      // Convert ore type to item name (e.g., 'copper' -> 'copper_ore')
+      final itemName = _oreTypeToItemName(oreType);
+      BackpackManager().addItem(itemName);
       setState(() {});
     }
 

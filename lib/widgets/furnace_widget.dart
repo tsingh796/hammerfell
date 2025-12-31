@@ -73,6 +73,20 @@ class FurnaceState {
       } catch (_) {}
     }
   }
+  
+  // Call this after loading to restart the timer if fuel is still burning
+  void restartTimerIfNeeded(VoidCallback onUpdate) {
+    // Cancel existing timer if it's somehow stuck
+    if (_timer != null && !_timer!.isActive) {
+      _timer?.cancel();
+      _timer = null;
+    }
+    
+    // Start timer if fuel is burning but timer isn't running
+    if (fuelSecondsRemaining > 0 && (_timer == null || !_timer!.isActive)) {
+      _startFuelTimer(onUpdate);
+    }
+  }
 
   // Process elapsed time when furnace was inactive
   void _processElapsedTime(int seconds) {
@@ -119,13 +133,13 @@ class FurnaceState {
         }
       }
       
-      // If fuel ran out, try to consume next coal
-      if (fuelSecondsRemaining == 0 && fuel != null && fuel!['count'] > 0 && seconds > 0) {
+      // If fuel ran out, try to consume next coal (only if we can smelt)
+      if (fuelSecondsRemaining == 0 && fuel != null && fuel!['count'] > 0 && seconds > 0 && _canStartSmelting()) {
         fuelSecondsRemaining = 64;
         fuel!['count'] -= 1;
         if (fuel!['count'] == 0) fuel = null;
       } else if (fuelSecondsRemaining == 0) {
-        // No more fuel, flame is out
+        // No more fuel or can't smelt, flame is out
         isSmelting = false;
         oreSecondsRemaining = 0;
         break;
@@ -152,8 +166,8 @@ class FurnaceState {
       fuel!['count'] = (fuel!['count'] as int) + count;
       if (fuel!['count'] > 64) fuel!['count'] = 64;
     }
-    // If not burning, start burning one coal
-    if (fuelSecondsRemaining <= 0 && fuel != null && fuel!['count'] > 0) {
+    // Only start burning fuel if we can actually smelt something
+    if (fuelSecondsRemaining <= 0 && fuel != null && fuel!['count'] > 0 && _canStartSmelting()) {
       fuelSecondsRemaining = 64;
       fuel!['count'] -= 1;
       if (fuel!['count'] == 0) fuel = null;
@@ -166,7 +180,14 @@ class FurnaceState {
 
   // Start or continue the fuel burning timer
   void _startFuelTimer(VoidCallback onUpdate) {
-    if (_timer != null && _timer!.isActive) return; // Already running
+    // Cancel any existing timer first
+    if (_timer != null) {
+      _timer?.cancel();
+      _timer = null;
+    }
+    
+    // Only start if there's fuel remaining
+    if (fuelSecondsRemaining <= 0) return;
     
     lastUpdateTimestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     
@@ -216,14 +237,23 @@ class FurnaceState {
           oreSecondsRemaining = 0;
         }
         
-        // If fuel just hit 0, try to consume next coal
+        // Auto-start smelting if fuel is burning, not currently smelting, and input is available
+        if (!isSmelting && input != null && input!['count'] > 0 && fuelSecondsRemaining > 0) {
+          final result = _getSmeltedResult(input!);
+          if (result != null && (output == null || (output!['type'] == result['type'] && output!['count'] < 64))) {
+            isSmelting = true;
+            oreSecondsRemaining = 2; // Testing: 2 seconds
+          }
+        }
+        
+        // If fuel just hit 0, try to consume next coal (only if we can smelt)
         if (fuelSecondsRemaining == 0) {
-          if (fuel != null && fuel!['count'] > 0) {
+          if (fuel != null && fuel!['count'] > 0 && _canStartSmelting()) {
             fuelSecondsRemaining = 64;
             fuel!['count'] -= 1;
             if (fuel!['count'] == 0) fuel = null;
           } else {
-            // No more fuel, timer will stop next tick
+            // No more fuel or can't smelt, timer will stop next tick
           }
         }
       } else {
@@ -277,14 +307,32 @@ class FurnaceState {
 
   Map<String, dynamic>? _getSmeltedResult(Map<String, dynamic> item) {
     final type = item['type'];
-    if (type == 'copper') {
+    if (type == 'copper_ore') {
       return {'type': 'copper_ingot', 'count': 1};
-    } else if (type == 'iron') {
+    } else if (type == 'iron_ore') {
       return {'type': 'iron_ingot', 'count': 1};
-    } else if (type == 'gold') {
+    } else if (type == 'gold_ore') {
       return {'type': 'gold_ingot', 'count': 1};
+    } else if (type == 'silver_ore') {
+      return {'type': 'silver_ingot', 'count': 1};
     }
     return null;
+  }
+
+  // Check if smelting can start (has ore, can produce output)
+  bool _canStartSmelting() {
+    // Check 1: Has ore in input
+    if (input == null || input!['count'] <= 0) return false;
+    
+    // Check 2: Can get a valid smelting result
+    final result = _getSmeltedResult(input!);
+    if (result == null) return false;
+    
+    // Check 3: Output can accept the result
+    if (output == null) return true;
+    if (output!['type'] == result['type'] && output!['count'] < 64) return true;
+    
+    return false;
   }
 }
 
@@ -299,6 +347,23 @@ class FurnaceWidget extends StatefulWidget {
 }
 
 class _FurnaceWidgetState extends State<FurnaceWidget> {
+
+  @override
+  void initState() {
+    super.initState();
+    // Restart timer if fuel is still burning when widget is created
+    widget.furnaceState.restartTimerIfNeeded(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    // Update timestamp one last time before disposing
+    if (widget.furnaceState.fuelSecondsRemaining > 0) {
+      widget.furnaceState.lastUpdateTimestamp = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      widget.onStateChanged(); // Trigger save
+    }
+    super.dispose();
+  }
 
   // Use ItemIcon widget for all item icons
   Widget _itemIcon(String type, int count) {
@@ -319,14 +384,14 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
               onAccept: (item) {
                 // Handled by DragTarget onAccept below
               },
-              acceptTypes: ['copper', 'iron', 'gold'],
+              acceptTypes: ['copper', 'copper_ore', 'iron', 'iron_ore', 'gold', 'gold_ore', 'silver', 'silver_ore'],
               count: furnace.input != null ? furnace.input!['count'] : 0,
               draggable: furnace.input != null,
               dragData: furnace.input != null ? {...furnace.input!, 'slot': 'input'} : null,
               iconBuilder: furnace.input != null ? () => ItemIcon(type: furnace.input!['type'], count: furnace.input!['count']) : null,
             ),
             const SizedBox(width: 16),
-            // Output slot (clickable to collect all, or draggable to specific slot)
+            // Output slot (tap to collect all to backpack)
             GestureDetector(
               onTap: () {
                 if (furnace.output != null && furnace.output!['count'] > 0) {
@@ -345,8 +410,8 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
                   // Output slot doesn't accept drops
                 },
                 count: furnace.output != null ? furnace.output!['count'] : 0,
-                draggable: true,
-                dragData: furnace.output != null ? {...furnace.output!, 'slot': 'output'} : null,
+                draggable: false,
+                dragData: null,
                 iconBuilder: furnace.output != null ? () => ItemIcon(type: furnace.output!['type'], count: furnace.output!['count']) : null,
               ),
             ),
@@ -384,27 +449,9 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
           ],
         ),
         const SizedBox(height: 16),
-        // Smelting progress and controls
+        // Smelting progress
         if (furnace.isSmelting)
           Text('Smelting... ${furnace.oreSecondsRemaining}s', style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
-        if (!furnace.isSmelting && furnace.input != null && furnace.input!['count'] > 0)
-          Column(
-            children: [
-              if (furnace.fuelSecondsRemaining <= 0)
-                const Text('Need fuel to start smelting', style: TextStyle(fontSize: 12, color: Colors.grey)),
-              if (furnace.output != null && furnace.output!['count'] >= 64)
-                const Text('Output is full, remove items first', style: TextStyle(fontSize: 12, color: Colors.grey)),
-              if (furnace.fuelSecondsRemaining > 0 && (furnace.output == null || furnace.output!['count'] < 64))
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      furnace.startSmelting(() => setState(() {}), widget.onStateChanged);
-                    });
-                  },
-                  child: const Text('Start Smelting'),
-                ),
-            ],
-          ),
         const SizedBox(height: 24),
         // Backpack grid (global)
         const Text('Backpack'),
@@ -495,6 +542,13 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
               } else if (widget.furnaceState.input == null && moveCount > 0) {
                 widget.furnaceState.input = {'type': type, 'count': moveCount};
                 actuallyMoved = moveCount;
+              }
+              // Force restart timer when ore is added and fuel is burning
+              if (actuallyMoved > 0 && widget.furnaceState.fuelSecondsRemaining > 0) {
+                // Cancel any stuck timer and force a fresh restart
+                widget.furnaceState._timer?.cancel();
+                widget.furnaceState._timer = null;
+                widget.furnaceState._startFuelTimer(() => setState(() {}));
               }
             } else if (label == 'Fuel') {
               if (widget.furnaceState.fuel != null && widget.furnaceState.fuel!['type'] == type && widget.furnaceState.fuel!['count'] < 64) {
@@ -650,25 +704,7 @@ class _FurnaceWidgetState extends State<FurnaceWidget> {
                       }
                       backpackManager.save();
                     }
-                    // 3. Move item from output slot to backpack: add all to backpack and clear output
-                    else if (data['slot'] == 'output' && data['type'] != null && data['count'] != null) {
-                      String type = data['type'];
-                      int moveCount = data['count'];
-                      if (slot != null && slot['type'] == type && slot['count'] < 64) {
-                        int space = 64 - (slot['count'] as int);
-                        int toMove = moveCount > space ? space : moveCount;
-                        slot['count'] += toMove;
-                        if (widget.furnaceState.output != null) {
-                          widget.furnaceState.output!['count'] -= toMove;
-                          if (widget.furnaceState.output!['count'] <= 0) widget.furnaceState.output = null;
-                        }
-                      } else if (slot == null) {
-                        backpack[index] = {'type': type, 'count': moveCount};
-                        widget.furnaceState.output = null;
-                      }
-                      backpackManager.save();
-                    }
-                    // 4. Move item within backpack
+                    // 3. Move item within backpack
                     else if (data['from'] != null && data['slot'] == null) {
                       backpackManager.moveItem(data['from'], index);
                     }

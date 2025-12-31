@@ -1,5 +1,11 @@
 ## Bugs to fix
-- Hammerfells not consuming when mining
+- Furnace not taking any input, may be item name mismatch after updates in shop
+- reset buttons not showing (both reset and reset-debug)
+    - reset will reset all of these to zero: hammerfell, coins, items in shelves, items in backpack
+    - reset-debug will do reset plus:
+        - add 10 to hammerfell and each coin
+        - add 10 coal, 10 iron-ore, 10 diamond to backpack
+        
 - Home button in minepage not taking me back to homepage first time
 
 

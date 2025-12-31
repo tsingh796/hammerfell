@@ -441,7 +441,10 @@ class _HomePageState extends State<HomePage> {
           final Map<String, double> oreMap = {};
           if (value is Map) {
             value.forEach((oreKey, oreValue) {
-              oreMap[oreKey.toString()] = (oreValue as num).toDouble();
+              // Skip find_chance as it's not an ore type
+              if (oreKey.toString() != 'find_chance') {
+                oreMap[oreKey.toString()] = (oreValue as num).toDouble();
+              }
             });
           }
           return MapEntry(key.toString(), oreMap);
