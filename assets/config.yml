@@ -1,21 +1,42 @@
-mining:
-  iron:
-    cost: 2
-    chance: 0.5
+mines:
+  coal:
+    find_chance: 100
+    stone: 0.1
+    coal: 0.739
+    copper_ore: 0.1
+    iron_ore: 0.05
+    gold_ore: 0.01
+    diamond: 0.001
   copper:
-    cost: 1
-    chance: 0.75
+    find_chance: 30
+    stone: 0.10
+    copper_ore: 0.10
+    iron_ore: 0.70
+    gold_ore: 0.09
+    diamond: 0.01
+  iron:
+    find_chance: 60
+    stone: 0.15
+    copper_ore: 0.10
+    iron_ore: 0.55
+    gold_ore: 0.15
+    diamond: 0.05
   gold:
-    cost: 5
-    chance: 0.35
+    find_chance: 10
+    stone: 0.20
+    copper_ore: 0.10
+    iron_ore: 0.15
+    gold_ore: 0.50
+    diamond: 0.05
   diamond:
-    cost: 10
-    chance: 0.15
+    find_chance: 0.1
+    stone: 0.30
+    copper_ore: 0.10
+    iron_ore: 0.10
+    gold_ore: 0.10
+    diamond: 0.40
 
 smelting:
-  iron:
-    cost: 1
-  copper:
-    cost: 1
-  gold:
-    cost: 1
+  iron: {}
+  copper: {}
+  gold: {}
