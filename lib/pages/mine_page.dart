@@ -5,6 +5,8 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../modals/mine_search_modal.dart';
 
@@ -226,6 +228,8 @@ class MinePage extends StatefulWidget {
     bool _isPressed1 = false;
     bool _isPressed2 = false;
     int _crackStep = 0;
+    bool _block1Mined = false; // Track if block 1 has been mined
+    bool _block2Mined = false; // Track if block 2 has been mined
     String? _mineResult;
     final FurnaceState _furnaceState = FurnaceState();
     final String _furnaceKey = 'furnace_mine';
@@ -243,6 +247,7 @@ class MinePage extends StatefulWidget {
     bool _miningSurrounding = false;
     int _surroundingCrackStep = 0;
     String? _surroundingBlockPosition;
+    String? _pressedSurroundingBlock; // Track which surrounding block is pressed
 
     @override
     void initState() {
@@ -255,9 +260,11 @@ class MinePage extends StatefulWidget {
           setState(() {
             _hasEnteredMine = true;
             _currentMine = Mine('coal');
-            _nextOre1 = null;
-            _nextOre2 = null;
+            _nextOre1 = _pickNextOre();
+            _nextOre2 = _pickNextOre();
             _generateSurroundingBlocks();
+            _block1Mined = false;
+            _block2Mined = false;
           });
         }
       });
@@ -309,6 +316,11 @@ class MinePage extends StatefulWidget {
       }
       // Save global backpack
       await BackpackManager().save();
+    }
+
+    void _playErrorSound() async {
+      final player = AudioPlayer();
+      await player.play(AssetSource('sounds/mining_not_started.ogg'));
     }
 
     String _crackAsset(int step, String ore) {
@@ -381,6 +393,7 @@ class MinePage extends StatefulWidget {
 
     void _mineSurroundingBlock(String position) {
       if (_mining || _miningSurrounding) return;
+      if (_currentHammerfells < 1) return;
       
       String blockType = 'stone';
       switch (position) {
@@ -421,7 +434,12 @@ class MinePage extends StatefulWidget {
             if (_surroundingCrackStep > 2) {
               _surroundingCrackStep = 0;
               timer.cancel();
-              _addToBackpack(blockType);
+              widget.onMine(blockType).then((success) {
+                if (success) {
+                  _addToBackpack(blockType);
+                  _currentHammerfells--;
+                }
+              });
               _miningSurrounding = false;
               _surroundingBlockPosition = null;
               
@@ -476,11 +494,30 @@ class MinePage extends StatefulWidget {
       }
       
       bool isMining = _miningSurrounding && _surroundingBlockPosition == position;
+      bool isPressed = _pressedSurroundingBlock == position;
       
       return Positioned(
         top: top,
         left: left,
         child: GestureDetector(
+          onTapDown: (TapDownDetails details) {
+            setState(() {
+              _pressedSurroundingBlock = position;
+            });
+            if (_currentHammerfells < 1) {
+              _playErrorSound();
+            }
+          },
+          onTapUp: (TapUpDetails details) {
+            setState(() {
+              _pressedSurroundingBlock = null;
+            });
+          },
+          onTapCancel: () {
+            setState(() {
+              _pressedSurroundingBlock = null;
+            });
+          },
           onLongPressStart: (LongPressStartDetails details) {
             _mineSurroundingBlock(position);
           },
@@ -520,8 +557,8 @@ class MinePage extends StatefulWidget {
                 size: Size(width, height),
                 painter: TrapezoidBorderPainter(
                   position: position,
-                  color: isMining ? Colors.white : Colors.black,
-                  width: isMining ? 2 : 1,
+                  color: (isMining || isPressed) ? Colors.white : Colors.black,
+                  width: (isMining || isPressed) ? 2 : 1,
                 ),
               ),
             ],
@@ -551,8 +588,11 @@ class MinePage extends StatefulWidget {
             setState(() {
               _hasEnteredMine = true;
               _currentMine = mine;
-              _nextOre1 = null;
-              _nextOre2 = null;
+              _nextOre1 = _pickNextOre();
+              _nextOre2 = _pickNextOre();
+              _generateSurroundingBlocks();
+              _block1Mined = false;
+              _block2Mined = false;
             });
             _saveMineState();
           },
@@ -652,7 +692,9 @@ class MinePage extends StatefulWidget {
                       // First mining button
                       GestureDetector(
                     onLongPressStart: (LongPressStartDetails details) async {
-                      if (_currentMine == null || _mining || _nextOre1 == null) return;
+                      if (_currentMine == null || _nextOre1 == null) return;
+                      if (_currentHammerfells < 1) return;
+                      if (_mining) return;
                       final oreType = _nextOre1!;
                       setState(() {
                         _mining = true;
@@ -670,10 +712,21 @@ class MinePage extends StatefulWidget {
                           if (_crackStep > 2) {
                             _crackStep = 0;
                             timer.cancel();
-                            _addToBackpack(oreType);
+                            widget.onMine(oreType).then((success) {
+                              if (success) {
+                                _addToBackpack(oreType);
+                                _currentHammerfells--;
+                              }
+                            });
                             _mining = false;
+                            _block1Mined = true;
                             _nextOre1 = _pickNextOre();
-                            // Don't regenerate surrounding blocks yet
+                            // Check if both blocks are mined
+                            if (_block1Mined && _block2Mined) {
+                              _generateSurroundingBlocks();
+                              _block1Mined = false;
+                              _block2Mined = false;
+                            }
                           }
                         });
                       });
@@ -691,6 +744,9 @@ class MinePage extends StatefulWidget {
                         setState(() {
                           _isPressed1 = true;
                         });
+                      }
+                      if (_currentHammerfells < 1) {
+                        _playErrorSound();
                       }
                     },
                     onTapUp: (_) {
@@ -739,7 +795,9 @@ class MinePage extends StatefulWidget {
                   // Second mining button
                   GestureDetector(
                     onLongPressStart: (LongPressStartDetails details) async {
-                      if (_currentMine == null || _mining || _nextOre2 == null) return;
+                      if (_currentMine == null || _nextOre2 == null) return;
+                      if (_currentHammerfells < 1) return;
+                      if (_mining) return;
                       final oreType = _nextOre2!;
                       setState(() {
                         _mining = true;
@@ -757,11 +815,21 @@ class MinePage extends StatefulWidget {
                           if (_crackStep > 2) {
                             _crackStep = 0;
                             timer.cancel();
-                            _addToBackpack(oreType);
+                            widget.onMine(oreType).then((success) {
+                              if (success) {
+                                _addToBackpack(oreType);
+                                _currentHammerfells--;
+                              }
+                            });
                             _mining = false;
+                            _block2Mined = true;
                             _nextOre2 = _pickNextOre();
-                            // Regenerate surrounding blocks only when both blocks have been mined once
-                            _generateSurroundingBlocks();
+                            // Check if both blocks are mined
+                            if (_block1Mined && _block2Mined) {
+                              _generateSurroundingBlocks();
+                              _block1Mined = false;
+                              _block2Mined = false;
+                            }
                           }
                         });
                       });
@@ -775,10 +843,13 @@ class MinePage extends StatefulWidget {
                       });
                     },
                     onTapDown: (TapDownDetails details) {
-                      if (_nextOre2 != null) {
+                      if (!_mining && _nextOre2 != null) {
                         setState(() {
                           _isPressed2 = true;
                         });
+                      }
+                      if (_currentHammerfells < 1) {
+                        _playErrorSound();
                       }
                     },
                     onTapUp: (_) {
