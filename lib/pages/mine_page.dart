@@ -967,25 +967,38 @@ class MinePage extends StatefulWidget {
                     child: const Text('Search for Mine'),
                   ),
                   const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: _openFurnace,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepOrange,
-                      foregroundColor: Colors.white,
+                  SizedBox(
+                    width: 56,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: _openFurnace,
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: Image.asset(
+                        _furnaceState.fuelSecondsRemaining > 0
+                          ? 'assets/images/furnace_on_button.png'
+                          : 'assets/images/furnace_off_button.png',
+                        fit: BoxFit.contain,
+                      ),
                     ),
-                    child: const Text('Furnace'),
                   ),
                   const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () async {
-                      await _saveMineState();
-                      Navigator.pop(context);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
+                  SizedBox(
+                    width: 56,
+                    height: 56,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        await _saveMineState();
+                        Navigator.pop(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: Image.asset('assets/images/home_button.png', fit: BoxFit.contain),
                     ),
-                    child: const Text('Home'),
                   ),
                 ],
               ),

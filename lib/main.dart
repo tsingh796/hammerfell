@@ -1101,7 +1101,7 @@ class _HomePageState extends State<HomePage> {
                               padding: EdgeInsets.zero,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
-                            child: const Icon(Icons.handyman, size: 32),
+                            child: Image.asset('assets/images/craft_button.png', fit: BoxFit.contain),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1126,21 +1126,12 @@ class _HomePageState extends State<HomePage> {
                               padding: EdgeInsets.zero,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
-                            child: Image.asset('assets/images/furnace_off_button.png', fit: BoxFit.contain),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          width: 56,
-                          height: 56,
-                          child: ElevatedButton(
-                            onPressed: _openShop,
-                            style: ElevatedButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              backgroundColor: Colors.brown.shade700,
+                            child: Image.asset(
+                              (_homeFurnaceState?.fuelSecondsRemaining ?? 0) > 0
+                                ? 'assets/images/furnace_on_button.png'
+                                : 'assets/images/furnace_off_button.png',
+                              fit: BoxFit.contain,
                             ),
-                            child: const Icon(Icons.store, color: Colors.white, size: 32),
                           ),
                         ),
                       ],
@@ -1181,6 +1172,19 @@ class _HomePageState extends State<HomePage> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             child: Image.asset('assets/images/mine_button.png', fit: BoxFit.contain),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 56,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: _openShop,
+                            style: ElevatedButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: Image.asset('assets/images/shop_button.png', fit: BoxFit.contain),
                           ),
                         ),
                         const SizedBox(width: 8),
