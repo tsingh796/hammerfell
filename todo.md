@@ -3,6 +3,17 @@
 - Home button in minepage not taking me back to homepage first time
 
 
+## Reorganization of items
+- make all items an object with some common features like
+    - price: amount in coins
+    - mineable: true/false
+    - smeltable: true/false
+    - stack size: default: 64, else 1, 16 etc.
+    - recipe (for craft)
+    - 
+
+
+
 ## Feature additions
 -[deffered] Implement to divide the stack into half on long press on a grid. Apply to all grids in chest and furnace
 

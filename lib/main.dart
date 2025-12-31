@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'utils/backpack_manager.dart';
 import 'utils/shelf_manager.dart';
+import 'utils/coin_manager.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:yaml/yaml.dart';
@@ -14,11 +15,13 @@ import 'widgets/chest_widget.dart';
 import 'widgets/item_icon.dart';
 import 'widgets/inventory_grid_with_splitting.dart';
 import 'widgets/shelf_grid.dart';
+import 'widgets/coin_converter.dart';
 import 'modals/mine_modal.dart';
 import 'utils/color_utils.dart';
 // import 'modals/forest_modal.dart';
 import 'pages/mine_page.dart';
 import 'pages/forest_page.dart';
+import 'pages/shop_page.dart';
 
 // --- Mine class for persistence and runtime ---
 class Mine {
@@ -54,8 +57,15 @@ class OreMinerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<BackpackManager>.value(
-      value: BackpackManager(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<BackpackManager>.value(
+          value: BackpackManager(),
+        ),
+        ChangeNotifierProvider<CoinManager>.value(
+          value: CoinManager(),
+        ),
+      ],
       child: MaterialApp(
         title: 'Ore Miner Deluxe',
         theme: ThemeData.dark(),
@@ -119,9 +129,11 @@ class _HomePageState extends State<HomePage> {
         ironIngot = oldIronIngot;
         copperIngot = oldCopperIngot;
         goldIngot = oldGoldIngot;
-        copperCoins = prefs.getInt('copperCoins') ?? 0;
-        silverCoins = prefs.getInt('silverCoins') ?? 0;
-        goldCoins = prefs.getInt('goldCoins') ?? 0;
+        // Load coins into CoinManager
+        final copperCoins = prefs.getInt('copperCoins') ?? 0;
+        final silverCoins = prefs.getInt('silverCoins') ?? 0;
+        final goldCoins = prefs.getInt('goldCoins') ?? 0;
+        CoinManager().setCoins(copperCoins, silverCoins, goldCoins);
       });
       // Load last entered mine (as JSON object)
       final lastMine = prefs.getString('lastMine');
@@ -327,16 +339,13 @@ class _HomePageState extends State<HomePage> {
       ironIngot = 10;
       copperIngot = 10;
       goldIngot = 10;
-      copperCoins = 10;
-      silverCoins = 10;
-      goldCoins = 10;
+      CoinManager().setCoins(50, 5, 1);
       // Reset backpack to 10 of each for demo
       for (int i = 0; i < BackpackManager().backpack.length; i++) {
         BackpackManager().backpack[i] = null;
       }
       BackpackManager().backpack[0] = {'type': 'coal', 'count': 10};
       BackpackManager().backpack[1] = {'type': 'iron', 'count': 10};
-      BackpackManager().notifyListeners();
       BackpackManager().save();
       _saveGame();
     });
@@ -389,9 +398,7 @@ class _HomePageState extends State<HomePage> {
   int ironIngot = 0;
   int copperIngot = 0;
   int goldIngot = 0;
-  int copperCoins = 0;
-  int silverCoins = 0;
-  int goldCoins = 0;
+  // Coins now managed by CoinManager
   
   // Mining chances
   double ironMineChance = 0.5;
@@ -454,9 +461,11 @@ class _HomePageState extends State<HomePage> {
     await prefs.setInt('ironIngot', ironIngot);
     await prefs.setInt('copperIngot', copperIngot);
     await prefs.setInt('goldIngot', goldIngot);
-    await prefs.setInt('copperCoins', copperCoins);
-    await prefs.setInt('silverCoins', silverCoins);
-    await prefs.setInt('goldCoins', goldCoins);
+    // Coins saved separately by CoinManager
+    final coinManager = CoinManager();
+    await prefs.setInt('copperCoins', coinManager.copperCoins);
+    await prefs.setInt('silverCoins', coinManager.silverCoins);
+    await prefs.setInt('goldCoins', coinManager.goldCoins);
     // Save last entered mine if any
     if (hasEnteredMine && currentMine != null) {
       await prefs.setString('lastMine', jsonEncode(currentMine!.toJson()));
@@ -509,13 +518,13 @@ class _HomePageState extends State<HomePage> {
     // Get mining chance for this ore type
     double mineChance = 1.0; // Default 100% for stone, coal
     switch (oreType) {
-      case 'iron':
+      case 'iron_ore':
         mineChance = ironMineChance;
         break;
-      case 'copper':
+      case 'copper_ore':
         mineChance = copperMineChance;
         break;
-      case 'gold':
+      case 'gold_ore':
         mineChance = goldMineChance;
         break;
       case 'diamond':
@@ -529,15 +538,15 @@ class _HomePageState extends State<HomePage> {
       if (success) {
         // Increment the appropriate ore counter (legacy)
         switch (oreType) {
-          case 'iron':
+          case 'iron_ore':
             ironOre++;
             ShelfManager().addItem('iron_ore');
             break;
-          case 'copper':
+          case 'copper_ore':
             copperOre++;
             ShelfManager().addItem('copper_ore');
             break;
-          case 'gold':
+          case 'gold_ore':
             goldOre++;
             ShelfManager().addItem('gold_ore');
             break;
@@ -610,9 +619,7 @@ class _HomePageState extends State<HomePage> {
       copperIngot = 0;
       goldIngot = 0;
       ShelfManager().clear();
-      copperCoins = 0;
-      silverCoins = 0;
-      goldCoins = 0;
+      CoinManager().setCoins(0, 0, 0);
       _saveGame();
     });
   }
@@ -620,20 +627,40 @@ class _HomePageState extends State<HomePage> {
   Widget coinIcon(String asset) => Image.asset(asset, width: 20, height: 20);
 
   Widget _buildCoinRow() {
-    return Row(
-      children: [
-        coinIcon('assets/images/copper_coin.png'),
-        const SizedBox(width: 4),
-        Text('$copperCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(width: 12),
-        coinIcon('assets/images/silver_coin.png'),
-        const SizedBox(width: 4),
-        Text('$silverCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(width: 12),
-        coinIcon('assets/images/gold_coin.png'),
-        const SizedBox(width: 4),
-        Text('$goldCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
-      ],
+    return Consumer<CoinManager>(
+      builder: (context, coinManager, child) {
+        return Row(
+          children: [
+            coinIcon('assets/images/copper_coin.png'),
+            const SizedBox(width: 4),
+            Text('${coinManager.copperCoins}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(width: 12),
+            coinIcon('assets/images/silver_coin.png'),
+            const SizedBox(width: 4),
+            Text('${coinManager.silverCoins}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(width: 12),
+            coinIcon('assets/images/gold_coin.png'),
+            const SizedBox(width: 4),
+            Text('${coinManager.goldCoins}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(width: 12),
+            IconButton(
+              icon: const Icon(Icons.swap_horiz, size: 20),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => ChangeNotifierProvider.value(
+                    value: CoinManager(),
+                    child: const CoinConverterDialog(),
+                  ),
+                );
+              },
+              tooltip: 'Convert Coins',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -772,6 +799,20 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _openShop() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChangeNotifierProvider.value(
+          value: CoinManager(),
+          child: const ShopPage(),
+        ),
+      ),
+    );
+    setState(() {}); // Refresh state after returning
+    _saveGame(); // Save coins after shop visit
+  }
+
 
 
 
@@ -906,20 +947,24 @@ class _HomePageState extends State<HomePage> {
                     ],
                   ),
                   // Coins (right)
-                  Row(
-                    children: [
-                      coinIcon('assets/images/copper_coin.png'),
-                      const SizedBox(width: 4),
-                      Text('$copperCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 12),
-                      coinIcon('assets/images/silver_coin.png'),
-                      const SizedBox(width: 4),
-                      Text('$silverCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 12),
-                      coinIcon('assets/images/gold_coin.png'),
-                      const SizedBox(width: 4),
-                      Text('$goldCoins', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    ],
+                  Consumer<CoinManager>(
+                    builder: (context, coinManager, child) {
+                      return Row(
+                        children: [
+                          coinIcon('assets/images/copper_coin.png'),
+                          const SizedBox(width: 4),
+                          Text('${coinManager.copperCoins}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 12),
+                          coinIcon('assets/images/silver_coin.png'),
+                          const SizedBox(width: 4),
+                          Text('${coinManager.silverCoins}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 12),
+                          coinIcon('assets/images/gold_coin.png'),
+                          const SizedBox(width: 4),
+                          Text('${coinManager.goldCoins}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
@@ -1077,6 +1122,20 @@ class _HomePageState extends State<HomePage> {
                             child: Image.asset('assets/images/furnace_off_button.png', fit: BoxFit.contain),
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 56,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: _openShop,
+                            style: ElevatedButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              backgroundColor: Colors.brown.shade700,
+                            ),
+                            child: const Icon(Icons.store, color: Colors.white, size: 32),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -1095,9 +1154,9 @@ class _HomePageState extends State<HomePage> {
                                   builder: (context) => MinePage(
                                     hammerfells: hammerfells,
                                     miningChances: {
-                                      'iron': ironMineChance,
-                                      'copper': copperMineChance,
-                                      'gold': goldMineChance,
+                                      'iron_ore': ironMineChance,
+                                      'copper_ore': copperMineChance,
+                                      'gold_ore': goldMineChance,
                                       'diamond': diamondMineChance,
                                     },
                                     onMine: (ore) async {

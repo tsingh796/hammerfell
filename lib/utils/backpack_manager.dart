@@ -21,6 +21,8 @@ class BackpackManager extends ChangeNotifier {
         for (int i = 0; i < size && i < decoded.length; i++) {
           if (decoded[i] != null) {
             backpack[i] = Map<String, dynamic>.from(decoded[i] as Map);
+            // Migrate old item names to new standardized names
+            _migrateItemName(i);
           } else {
             backpack[i] = null;
           }
@@ -32,6 +34,34 @@ class BackpackManager extends ChangeNotifier {
       }
     }
     notifyListeners();
+  }
+
+  void _migrateItemName(int index) {
+    final slot = backpack[index];
+    if (slot == null) return;
+    
+    final type = slot['type'] as String;
+    String? newType;
+    
+    // Migrate old short names to new standardized names
+    switch (type) {
+      case 'copper':
+        newType = 'copper_ore';
+        break;
+      case 'iron':
+        newType = 'iron_ore';
+        break;
+      case 'gold':
+        newType = 'gold_ore';
+        break;
+      case 'silver':
+        newType = 'silver_ore';
+        break;
+    }
+    
+    if (newType != null) {
+      slot['type'] = newType;
+    }
   }
 
   Future<void> save() async {

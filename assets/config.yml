@@ -2,32 +2,32 @@ mines:
   coal:
     stone: 0.1
     coal: 0.739
-    copper: 0.1
-    iron: 0.05
-    gold: 0.01
+    copper_ore: 0.1
+    iron_ore: 0.05
+    gold_ore: 0.01
     diamond: 0.001
-  copper:
+  copper_ore:
     stone: 0.10
-    copper: 0.10
-    iron: 0.70
-    gold: 0.09
+    copper_ore: 0.10
+    iron_ore: 0.70
+    gold_ore: 0.09
     diamond: 0.01
-  iron:
+  iron_ore:
     stone: 0.15
-    copper: 0.10
-    iron: 0.55
-    gold: 0.15
+    copper_ore: 0.10
+    iron_ore: 0.55
+    gold_ore: 0.15
     diamond: 0.05
-  gold:
+  gold_ore:
     stone: 0.20
-    copper: 0.10
-    iron: 0.15
-    gold: 0.50
+    copper_ore: 0.10
+    iron_ore: 0.15
+    gold_ore: 0.50
     diamond: 0.05
   diamond:
     stone: 0.30
-    copper: 0.10
-    iron: 0.10
+    copper_ore: 0.10
+    iron_ore: 0.10
     gold: 0.10
     diamond: 0.40
 
