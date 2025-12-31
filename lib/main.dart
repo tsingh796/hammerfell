@@ -372,14 +372,18 @@ class _HomePageState extends State<HomePage> {
         return 'assets/images/stone.png';
       case 'coal':
         return 'assets/images/coal.png';
+      case 'silver_ore':
+        return 'assets/images/silver_ore.png';
       case 'copper_ingot':
         return 'assets/images/copper_ingot.png';
       case 'iron_ingot':
         return 'assets/images/iron_ingot.png';
+      case 'silver_ingot':
+        return 'assets/images/silver_ingot.png';
       case 'gold_ingot':
         return 'assets/images/gold_ingot.png';
       default:
-        return 'assets/images/stone.png'; // Use stone as fallback for unknown items
+        return 'assets/images/default_item.png'; // Fallback for unknown items
     }
   }
 
